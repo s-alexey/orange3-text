@@ -3,11 +3,17 @@ from PyQt4 import QtCore, QtGui
 from Orange.widgets.widget import OWWidget
 from Orange.widgets.settings import Setting
 from Orange.widgets import gui
-from orangecontrib.text.preprocess import Preprocessor, Stemmer, Lemmatizer
+from orangecontrib.text.preprocess import Preprocessor
+from orangecontrib.text.string_transformation import TextStringTransformer
+from orangecontrib.text.tokenization import TOKENIZERS
+from orangecontrib.text.token_filtering import *
+from orangecontrib.text.token_normalization import NORMALIZERS
+from orangecontrib.text.utils import StringOption
 
 
 class Output:
     PREPROCESSOR = "Preprocessor"
+
 
 class OWPreprocess(OWWidget):
     name = "Preprocess"
@@ -18,54 +24,130 @@ class OWPreprocess(OWWidget):
     outputs = [(Output.PREPROCESSOR, Preprocessor)]
     want_main_area = False
 
-    include_punctuation = Setting(False)
-    lowercase = Setting(True)
-    remove_stpwrds = Setting(True)
-    transformation_opt = Setting(["(none)", "Stemmer", "Lemmatizer"])
-    transformation_obj = [None, Stemmer, Lemmatizer]
+    tokenizer_ind = Setting(0)
+    TOKENIZERS = [None] + TOKENIZERS
+
+    filter_ind = Setting(0)
+    FILTERS = [
+        ('None', None),
+        ('Stop Words', StopWordsFilter('english')),
+        ('Hash tag', HashTagFilter()),
+    ]
+
+    normalizer_ind = Setting(0)
+    NORMALIZERS = [None] + NORMALIZERS
 
     def __init__(self):
+
         super().__init__()
 
-        self.transformation = None
+        self.preprocessor = Preprocessor()
 
-        # Settings.
-        settings_box = gui.widgetBox(self.controlArea, "Basic options", addSpace=True)
+        # gui
+        self.setMinimumSize(500, 100)
+        vbox = QtGui.QVBoxLayout()
 
-        gui.checkBox(settings_box, self, "include_punctuation", "Include punctuation")
-        gui.checkBox(settings_box, self, "lowercase", "To lowercase")
-        gui.checkBox(settings_box, self, "remove_stpwrds", "Remove stopwords")
+        # Demo
+        demo_layout = QtGui.QFormLayout()
+        demo_layout.setMargin(10)
 
-        # Transformation.
-        transformation_box = gui.widgetBox(self.controlArea, "Transformation", addSpace=True)
+        self.line_edit = QtGui.QLineEdit(self.controlArea)
+        self.line_edit.setText('Hello, world!')
+        demo_layout.addRow("Demo:", self.line_edit)
 
-        self.trans_combo = QtGui.QComboBox(settings_box)
-        transformation_box.layout().addWidget(self.trans_combo, QtCore.Qt.AlignRight)
-        self.fill_transformation_options()  # Add available options.
-        self.trans_combo.activated[int].connect(self.select_transformation)
+        self.demo_result = gui.label(self.controlArea, self, "")
+        self.line_edit.textChanged.connect(self.demo_changed)
+        demo_layout.addRow("Result:", self.demo_result)
 
-        gui.button(self.controlArea, self, "&Apply", callback=self.apply, default=True)
+        vbox.addLayout(demo_layout)
 
+        # Settings
+        settings_layout = QtGui.QHBoxLayout()
+        settings_layout.setMargin(10)
+
+        # Transformation
+        self.transformer = TextStringTransformer()
+        self.preprocessor.string_processor = self.transformer
+
+        transformation_box = gui.widgetBox(self.controlArea, "Text transformation",
+                                           addSpace=False)
+        settings_layout.addWidget(transformation_box)
+
+        gui.checkBox(transformation_box, self.transformer, "lowercase", "To lowercase")
+        gui.checkBox(transformation_box, self.transformer, "strip_accents", "Strip accents")
+
+        # Tokenization
+        self.tokenizer = None
+        # tokenization_layout = QtGui.QVBoxLayout()
+        tokenization_box = gui.widgetBox(self.controlArea, "Tokenization", addSpace=False)
+
+        combo_box = gui.comboBox(tokenization_box, self, "tokenizer_ind", items=self.TOKENIZERS,
+                                 callback=self.tokenizer_changed)
+        # self.tokenizer_options = QtGui.QBoxLayout(0)
+        self.tokenizer_option_box = gui.widgetBox(tokenization_box)
+        self.tokenizer_options = []
+
+        settings_layout.addWidget(tokenization_box)
+
+        # Filtering
+        self.filter = None
+        filtering_box = gui.widgetBox(self.controlArea, "Filtering",
+                                         addSpace=False)
+        combo_box = gui.comboBox(filtering_box, self, "filter_ind", items=self.FILTERS,
+                                 callback=self.filter_changed)
+        settings_layout.addWidget(filtering_box)
+
+        # Normalization
+        self.normalizer = None
+        normalization_box = gui.widgetBox(self.controlArea, "Normalization", addSpace=False)
+        settings_layout.addWidget(normalization_box)
+
+        combo_box = gui.comboBox(normalization_box, self, "normalizer_ind", items=self.NORMALIZERS,
+                                 callback=self.normalizer_changed)
+
+        vbox.addLayout(settings_layout)
+
+        button = gui.button(self.controlArea, self, "&Apply", callback=self.apply, default=True)
+        vbox.addWidget(button)
+
+        self.layout().insertLayout(1, vbox)
         self.apply()
 
-    def select_transformation(self, n):
-        self.transformation = self.transformation_obj[n]
+    def tokenizer_changed(self):
+        self.tokenizer = self.TOKENIZERS[self.tokenizer_ind]
+        self.preprocessor.tokenizer = self.tokenizer
+        self.clear_options(self.tokenizer_options)
+        self.tokenizer_options = []
+        if self.tokenizer:
+            if self.tokenizer.options:
+                for option in self.tokenizer.options:
+                    if isinstance(option, StringOption):
+                        lab = gui.lineEdit(self.tokenizer_option_box, self.tokenizer,
+                                           option.name)
+                        lab.setPlaceholderText(option.verbose_name)
+                        self.tokenizer_options.append(lab)
 
-    def fill_transformation_options(self):
-        self.trans_combo.clear()
-        for trans in self.transformation_opt:
-            if trans == "(none)":
-                self.trans_combo.addItem("(none)")
-            else:
-                self.trans_combo.addItem(trans)
+        self.demo_changed()
+
+    def filter_changed(self):
+        self.filter = self.FILTERS[self.filter_ind][1]
+        self.preprocessor.token_filter = self.filter
+        self.demo_changed()
+
+    def normalizer_changed(self):
+        self.normalizer = self.NORMALIZERS[self.normalizer_ind]
+        self.preprocessor.token_normalizer = self.normalizer
+        self.demo_changed()
 
     def apply(self):
-        # TODO change this to custom stopwords
-        if self.remove_stpwrds:
-            sw = 'english'
-        else:
-            sw = None
+        self.send(Output.PREPROCESSOR, self.preprocessor)
 
-        pp = Preprocessor(incl_punct=self.include_punctuation, trans=self.transformation,
-                          lowercase=self.lowercase, stop_words=sw)
-        self.send(Output.PREPROCESSOR, pp)
+    def demo_changed(self, **args):
+        self.demo_result.setText(
+            str(self.preprocessor(self.line_edit.text()))
+        )
+
+    def clear_options(self, option_list):
+        for option_widget in option_list:
+            option_widget.setParent(None)
+            option_widget.deleteLater()
