@@ -4,7 +4,7 @@ from Orange.widgets.widget import OWWidget
 from Orange.widgets.settings import Setting
 from Orange.widgets import gui
 from orangecontrib.text.preprocess import Preprocessor
-from orangecontrib.text.string_transformation import TextStringTransformer
+from orangecontrib.text.string_transformation import TRANSFORMERS
 from orangecontrib.text.tokenization import TOKENIZERS
 from orangecontrib.text.token_filtering import *
 from orangecontrib.text.token_normalization import NORMALIZERS
@@ -37,6 +37,8 @@ class OWPreprocess(OWWidget):
     normalizer_ind = Setting(0)
     NORMALIZERS = [None] + NORMALIZERS
 
+    TRANSFORMERS = TRANSFORMERS
+
     def __init__(self):
 
         super().__init__()
@@ -44,7 +46,7 @@ class OWPreprocess(OWWidget):
         self.preprocessor = Preprocessor()
 
         # gui
-        self.setMinimumSize(500, 100)
+        self.setMinimumSize(500, 300)
         vbox = QtGui.QVBoxLayout()
 
         # Demo
@@ -66,19 +68,23 @@ class OWPreprocess(OWWidget):
         settings_layout.setMargin(10)
 
         # Transformation
-        self.transformer = TextStringTransformer()
-        self.preprocessor.string_processor = self.transformer
+        self.transformers = set()
+        self.preprocessor.string_processor = self.transformers
 
+        transformation_layout = QtGui.QVBoxLayout()
         transformation_box = gui.widgetBox(self.controlArea, "Text transformation",
                                            addSpace=False)
-        settings_layout.addWidget(transformation_box)
+        transformation_layout.addWidget(transformation_box)
+        for transformer in self.TRANSFORMERS:
+            check_box = QtGui.QCheckBox(str(transformer.name))
+            check_box.setChecked(False)
+            check_box.stateChanged.connect(lambda: self.change_transformers(transformer))
+            transformation_layout.addWidget(check_box)
 
-        gui.checkBox(transformation_box, self.transformer, "lowercase", "To lowercase")
-        gui.checkBox(transformation_box, self.transformer, "strip_accents", "Strip accents")
+        settings_layout.addLayout(transformation_layout)
 
         # Tokenization
         self.tokenizer = None
-        # tokenization_layout = QtGui.QVBoxLayout()
         tokenization_box = gui.widgetBox(self.controlArea, "Tokenization", addSpace=False)
 
         combo_box = gui.comboBox(tokenization_box, self, "tokenizer_ind", items=self.TOKENIZERS,
@@ -112,6 +118,12 @@ class OWPreprocess(OWWidget):
 
         self.layout().insertLayout(1, vbox)
         self.apply()
+
+    def change_transformers(self, transformer):
+        if transformer in self.transformers:
+            self.transformers.remove(transformer)
+        else:
+            self.transformers.add(transformer)
 
     def tokenizer_changed(self):
         self.tokenizer = self.TOKENIZERS[self.tokenizer_ind]

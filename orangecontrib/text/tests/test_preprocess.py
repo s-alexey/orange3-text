@@ -1,9 +1,10 @@
 import unittest
 from orangecontrib.text.preprocess import Preprocessor
-from orangecontrib.text.string_transformation import BaseStringTransformer
-from orangecontrib.text.token_filtering import BaseTokenFilter, HashTagFilter
+from orangecontrib.text.string_transformation import BaseStringTransformer, \
+    LowercaseStringTransformer
+from orangecontrib.text.token_filtering import BaseTokenFilter
 from orangecontrib.text.tokenization import BaseTokenizer
-from orangecontrib.text.token_normalization import BaseTokenNormalizer, DictionaryLookupNormalizer
+from orangecontrib.text.token_normalization import BaseTokenNormalizer
 
 
 class PreprocessTests(unittest.TestCase):
@@ -23,12 +24,20 @@ class PreprocessTests(unittest.TestCase):
     def test_string_processor(self):
         class StripStringTransformer(BaseStringTransformer):
             @classmethod
-            def process(cls, string):
+            def transform(cls, string):
                 return string.strip()
-        p = Preprocessor(string_processor=StripStringTransformer())
+        p = Preprocessor(string_transformers=StripStringTransformer())
 
         self.assertEqual(p(' ' + self.sentence + ' \n'), self.sentence)
         self.assertEqual(p([' ' + self.sentence + ' \n']), [self.sentence])
+
+        p = Preprocessor(string_transformers=[StripStringTransformer(),
+                                              LowercaseStringTransformer()])
+
+        self.assertEqual(p(' ' + self.sentence + ' \n'), self.sentence.lower())
+        self.assertEqual(p([' ' + self.sentence + ' \n']), [self.sentence.lower()])
+
+        self.assertRaises(TypeError, Preprocessor, string_transformers=1)
 
     def test_tokenizer(self):
         class SpaceTokenizer(BaseTokenizer):
@@ -58,10 +67,8 @@ class PreprocessTests(unittest.TestCase):
 
         class LengthFilter(BaseTokenFilter):
             @classmethod
-            def check(self, token):
+            def check(cls, token):
                 return len(token) <= 3
-
-        htf = LengthFilter()
 
         p = Preprocessor(tokenizer=SpaceTokenizer(), token_filter=LengthFilter())
         self.assertEqual(p(self.sentence), ['for', 'lab', 'abc'])
