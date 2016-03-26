@@ -1,6 +1,8 @@
 from nltk.corpus import stopwords
 
-__all__ = ["StopWordsFilter", "VocabularyFilter", "HashTagFilter", "UserNameFilter"]
+__all__ = [
+    "FILTERS", "StopWordsFilter", "LexiconFilter", "HashTagFilter", "UserNameFilter"
+]
 
 
 class BaseTokenFilter:
@@ -18,8 +20,16 @@ class BaseTokenFilter:
     def check(self, token):
         raise NotImplementedError("This method isn't implemented yet.")
 
+    @property
+    def name(self):
+        raise NotImplementedError("{} doesn't have name.".format(self.__class__))
+
+    def __str__(self):
+        return self.name
+
 
 class StopWordsFilter(BaseTokenFilter):
+    name = 'Stopwords'
 
     def __init__(self, language=None, stop_words=None):
         # TODO add language and corpus checker
@@ -33,7 +43,8 @@ class StopWordsFilter(BaseTokenFilter):
         return token not in self.stop_words
 
 
-class VocabularyFilter(BaseTokenFilter):
+class LexiconFilter(BaseTokenFilter):
+    name = 'Lexicon'
 
     def __init__(self, vocabulary):
         self.vocabulary = vocabulary
@@ -43,6 +54,7 @@ class VocabularyFilter(BaseTokenFilter):
 
 
 class HashTagFilter(BaseTokenFilter):
+    name = "Hash tags"
 
     @classmethod
     def check(cls, token):
@@ -50,7 +62,10 @@ class HashTagFilter(BaseTokenFilter):
 
 
 class UserNameFilter(BaseTokenFilter):
+    name = "User names"
 
     @classmethod
     def check(cls, token):
         return not token.startswith('@')
+
+FILTERS = [StopWordsFilter('english'), HashTagFilter(), UserNameFilter()]

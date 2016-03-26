@@ -6,13 +6,47 @@ from Orange.widgets import gui
 from orangecontrib.text.preprocess import Preprocessor
 from orangecontrib.text.string_transformation import TRANSFORMERS
 from orangecontrib.text.tokenization import TOKENIZERS
-from orangecontrib.text.token_filtering import *
+from orangecontrib.text.token_filtering import FILTERS
 from orangecontrib.text.token_normalization import NORMALIZERS
 from orangecontrib.text.utils import StringOption
 
 
 class Output:
     PREPROCESSOR = "Preprocessor"
+
+
+class CheckList:
+
+    def __init__(self, widget, items, owner, attribute, header='', callback=None):
+
+        self.widget = widget
+        self.items = items
+        self.owner = owner
+        self.attribute = attribute
+        self.callback = callback
+
+        self.layout = QtGui.QVBoxLayout()
+        option_box = gui.widgetBox(self.widget, header, addSpace=False)
+        self.layout.addWidget(option_box)
+
+        self.check_boxes = []
+
+        for item in items:
+            check_box = QtGui.QCheckBox(str(item.name))
+            check_box.setChecked(False)
+            check_box.stateChanged.connect(self.change_options)
+            self.layout.addWidget(check_box)
+            self.check_boxes.append(check_box)
+
+    def change_options(self):
+        items = []
+        for item, check_box in zip(self.items, self.check_boxes):
+            if check_box.isChecked():
+                items.append(item)
+
+        setattr(self.owner, self.attribute, items)
+        if self.callback:
+            self.callback()
 
 
 class OWPreprocess(OWWidget):
@@ -27,22 +61,14 @@ class OWPreprocess(OWWidget):
     tokenizer_ind = Setting(0)
     TOKENIZERS = [None] + TOKENIZERS
 
-    filter_ind = Setting(0)
-    FILTERS = [
-        ('None', None),
-        ('Stop Words', StopWordsFilter('english')),
-        ('Hash tag', HashTagFilter()),
-    ]
-
     normalizer_ind = Setting(0)
     NORMALIZERS = [None] + NORMALIZERS
 
     TRANSFORMERS = TRANSFORMERS
+    FILTERS = FILTERS
 
     def __init__(self):
-
         super().__init__()
-
         self.preprocessor = Preprocessor()
 
         # gui
@@ -68,20 +94,12 @@ class OWPreprocess(OWWidget):
         settings_layout.setMargin(10)
 
         # Transformation
-        self.transformers = set()
-        self.preprocessor.string_processor = self.transformers
+        self.transformation_check_list = CheckList(self.controlArea, self.TRANSFORMERS,
+                                                   self.preprocessor, 'string_transformers',
+                                                   header='Text transformation',
+                                                   callback=self.demo_changed)
 
-        transformation_layout = QtGui.QVBoxLayout()
-        transformation_box = gui.widgetBox(self.controlArea, "Text transformation",
-                                           addSpace=False)
-        transformation_layout.addWidget(transformation_box)
-        for transformer in self.TRANSFORMERS:
-            check_box = QtGui.QCheckBox(str(transformer.name))
-            check_box.setChecked(False)
-            check_box.stateChanged.connect(lambda: self.change_transformers(transformer))
-            transformation_layout.addWidget(check_box)
-
-        settings_layout.addLayout(transformation_layout)
+        settings_layout.addLayout(self.transformation_check_list.layout)
 
         # Tokenization
         self.tokenizer = None
@@ -89,19 +107,18 @@ class OWPreprocess(OWWidget):
 
         combo_box = gui.comboBox(tokenization_box, self, "tokenizer_ind", items=self.TOKENIZERS,
                                  callback=self.tokenizer_changed)
-        # self.tokenizer_options = QtGui.QBoxLayout(0)
+
         self.tokenizer_option_box = gui.widgetBox(tokenization_box)
         self.tokenizer_options = []
 
         settings_layout.addWidget(tokenization_box)
 
         # Filtering
-        self.filter = None
-        filtering_box = gui.widgetBox(self.controlArea, "Filtering",
-                                         addSpace=False)
-        combo_box = gui.comboBox(filtering_box, self, "filter_ind", items=self.FILTERS,
-                                 callback=self.filter_changed)
-        settings_layout.addWidget(filtering_box)
+        self.filtering_check_list = CheckList(self.controlArea, self.FILTERS,
+                                              self.preprocessor, 'token_filters',
+                                              header='Filtering', callback=self.demo_changed)
+
+        settings_layout.addLayout(self.filtering_check_list.layout)
 
         # Normalization
         self.normalizer = None
@@ -119,12 +136,6 @@ class OWPreprocess(OWWidget):
         self.layout().insertLayout(1, vbox)
         self.apply()
 
-    def change_transformers(self, transformer):
-        if transformer in self.transformers:
-            self.transformers.remove(transformer)
-        else:
-            self.transformers.add(transformer)
-
     def tokenizer_changed(self):
         self.tokenizer = self.TOKENIZERS[self.tokenizer_ind]
         self.preprocessor.tokenizer = self.tokenizer
@@ -139,11 +150,6 @@ class OWPreprocess(OWWidget):
                         lab.setPlaceholderText(option.verbose_name)
                         self.tokenizer_options.append(lab)
 
-        self.demo_changed()
-
-    def filter_changed(self):
-        self.filter = self.FILTERS[self.filter_ind][1]
-        self.preprocessor.token_filter = self.filter
         self.demo_changed()
 
     def normalizer_changed(self):

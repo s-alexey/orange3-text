@@ -70,7 +70,7 @@ class PreprocessTests(unittest.TestCase):
             def check(cls, token):
                 return len(token) <= 3
 
-        p = Preprocessor(tokenizer=SpaceTokenizer(), token_filter=LengthFilter())
+        p = Preprocessor(tokenizer=SpaceTokenizer(), token_filters=LengthFilter())
         self.assertEqual(p(self.sentence), ['for', 'lab', 'abc'])
 
 
