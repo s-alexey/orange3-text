@@ -1,10 +1,9 @@
 import collections
-from nltk.stem.porter import PorterStemmer
-from nltk.stem import WordNetLemmatizer
+from nltk import stem
 
-from orangecontrib.text.utils import BaseOption, BaseWrapper
+from orangecontrib.text.utils import BaseOption, BaseWrapper, StringOption
 
-__all__ = ['StemNormalizer', 'DictionaryLookupNormalizer', 'NORMALIZERS']
+__all__ = ['NltkStemNormalizer', 'DictionaryLookupNormalizer', 'NORMALIZERS']
 
 
 class BaseTokenNormalizer(BaseWrapper):
@@ -27,47 +26,15 @@ class BaseTokenNormalizer(BaseWrapper):
                                   "'normalize'".format(name=cls.__name__))
 
 
-class StemNormalizer(BaseTokenNormalizer):
-    """ A common class for token normalisation (stemming/lemmatization).
-    """
-    def __init__(self, normalizer, name='Stemmatizer', options=None):
-        """
-        :param normalizer: The method that will perform transformation on the tokens.
-        :type normalizer: Callable (function or method)
-        :param name: The name of the transformation object.
-        :type name: verbose method name
-        :param options: additional arguments
-        """
+class FunctionNormalizer(BaseTokenNormalizer):
+
+    def __init__(self, function, name):
         super().__init__()
-        self._check_str_type(name)
+        self.function = function
         self.name = name
 
-        if hasattr(normalizer, 'stem'):
-            self.normalizer_cls = normalizer
-            self.normalizer = None
-        elif not callable(normalizer):
-            raise TypeError("normalizer must be callable")
-        else:
-            self.normalizer_cls = None
-            self.normalizer = normalizer
-
-        self.options = options if options else tuple()
-
-        for option in self.options:
-            if not isinstance(option, BaseOption):
-                raise TypeError('Options should be an BaseOption subclass instance.')
-            setattr(self, option.name, option.default)
-
-        self._update_normalizer()
-
-    def _update_normalizer(self):
-        if self.normalizer_cls is not None:
-            kwargs = {opt.name: getattr(self, opt.name) for opt in self.options}
-            self.normalizer = self.normalizer_cls(**kwargs).stem
-
     def normalize(self, token):
-        self._check_str_type(token)
-        return self.normalizer(token)
+        return self.function(token)
 
 
 class DictionaryLookupNormalizer(BaseTokenNormalizer):
@@ -84,7 +51,39 @@ class DictionaryLookupNormalizer(BaseTokenNormalizer):
         return self.dictionary.get(token, token)
 
 
+class NltkStemNormalizer(BaseTokenNormalizer):
+    """ A common class for token stemming (nltk.stem).
+    """
+    name = "Stemmer"
+    normalizer_cls = None
+
+    def update_configuration(self):
+        if self.normalizer_cls is not None:
+            kwargs = {opt.name: getattr(self, opt.name) for opt in self.options}
+            self.normalizer = self.normalizer_cls(**kwargs).stem
+
+    def normalize(self, token):
+        self._check_str_type(token)
+        return self.normalizer(token)
+
+
+class PorterStemmer(NltkStemNormalizer):
+
+    name = "Porter stemmer"
+    normalizer_cls = stem.PorterStemmer
+
+
+class SnowballStemmer(NltkStemNormalizer):
+
+    name = "Snowball stemmer"
+    normalizer_cls = stem.SnowballStemmer
+    options = (
+        StringOption(name="language", default="english", verbose_name="Language",
+                     choices=stem.SnowballStemmer.languages),
+    )
+
+
 NORMALIZERS = [
-    StemNormalizer(PorterStemmer, name='Porter stemmer'),
-    StemNormalizer(WordNetLemmatizer().lemmatize, name='WordNet lemmatizer'),
+    PorterStemmer(), SnowballStemmer(),
+    FunctionNormalizer(stem.WordNetLemmatizer().lemmatize, name='WordNet lemmatizer'),
 ]

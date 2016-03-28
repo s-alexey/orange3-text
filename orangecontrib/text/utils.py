@@ -14,6 +14,8 @@ class BaseWrapper:
             setattr(self, option.name, option.default)
             option.set_owner(self)
 
+        self.update_configuration()
+
     @staticmethod
     def _check_iterable(obj):
         if not isinstance(obj, collections.Iterable):
