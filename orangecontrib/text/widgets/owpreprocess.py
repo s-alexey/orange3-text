@@ -1,18 +1,13 @@
-from PyQt4 import QtCore, QtGui
+from PyQt4 import QtGui
 
 from Orange.widgets.widget import OWWidget
-from Orange.widgets.settings import Setting
 from Orange.widgets import gui
 from orangecontrib.text.preprocess import Preprocessor
 from orangecontrib.text.string_transformation import TRANSFORMERS
 from orangecontrib.text.tokenization import TOKENIZERS
 from orangecontrib.text.token_filtering import FILTERS
 from orangecontrib.text.token_normalization import NORMALIZERS
-from orangecontrib.text.utils import StringOption
-
-
-class Output:
-    PREPROCESSOR = "Preprocessor"
+from orangecontrib.text.utils import BaseOption
 
 
 class CheckList:
@@ -37,6 +32,9 @@ class CheckList:
             check_box.stateChanged.connect(self.change_options)
             self.layout.addWidget(check_box)
             self.check_boxes.append(check_box)
+            if item.options:
+                self.layout.addLayout(item.options_layout(option_box,
+                                                          callback=self.callback))
 
     def change_options(self):
         items = []
@@ -49,6 +47,55 @@ class CheckList:
             self.callback()
 
 
+class ComboBox:
+
+    selected_item_index = 0
+
+    def __init__(self, widget, items, owner, attribute, header='', callback=None):
+        self.items = items
+        self.owner = owner
+        self.attribute = attribute
+        self.callback = callback
+
+        widget_box = gui.widgetBox(widget, header, addSpace=False)
+
+        gui.comboBox(widget_box, self, "selected_item_index", items=self.items,
+                     callback=self.item_changed)
+
+        self.options_layout = QtGui.QVBoxLayout()
+
+        self.layout = QtGui.QVBoxLayout()
+        self.layout.addWidget(widget_box)
+        self.layout.addLayout(self.options_layout)
+
+    def item_changed(self):
+        item = self.items[self.selected_item_index]
+        setattr(self.owner, self.attribute, item)
+
+        self.clear_layout(self.options_layout)
+
+        if item and item.options:
+            layout = item.options_layout(callback=self.callback)
+            self.options_layout.addLayout(layout)
+
+        if self.callback:
+            self.callback()
+
+    def clear_layout(self, layout):
+        if layout is not None:
+            while layout.count():
+                item = layout.takeAt(0)
+                widget = item.widget()
+                if widget is not None:
+                    widget.deleteLater()
+                else:
+                    self.clear_layout(item.layout())
+
+
+class Output:
+    PREPROCESSOR = "Preprocessor"
+
+
 class OWPreprocess(OWWidget):
     name = "Preprocess"
     description = "Choose the pre-processing options and return a Preprocessor object."
@@ -58,12 +105,8 @@ class OWPreprocess(OWWidget):
     outputs = [(Output.PREPROCESSOR, Preprocessor)]
     want_main_area = False
 
-    tokenizer_ind = Setting(0)
     TOKENIZERS = [None] + TOKENIZERS
-
-    normalizer_ind = Setting(0)
     NORMALIZERS = [None] + NORMALIZERS
-
     TRANSFORMERS = TRANSFORMERS
     FILTERS = FILTERS
 
@@ -94,39 +137,29 @@ class OWPreprocess(OWWidget):
         settings_layout.setMargin(10)
 
         # Transformation
-        self.transformation_check_list = CheckList(self.controlArea, self.TRANSFORMERS,
-                                                   self.preprocessor, 'string_transformers',
-                                                   header='Text transformation',
-                                                   callback=self.demo_changed)
+        cl = CheckList(self.controlArea, self.TRANSFORMERS, self.preprocessor, 'string_transformers',
+                       header='Text transformation', callback=self.demo_changed)
 
-        settings_layout.addLayout(self.transformation_check_list.layout)
+        settings_layout.addLayout(cl.layout)
+        self.transformation_check_list = cl
 
         # Tokenization
-        self.tokenizer = None
-        tokenization_box = gui.widgetBox(self.controlArea, "Tokenization", addSpace=False)
+        cb = ComboBox(self.controlArea, self.TOKENIZERS, self.preprocessor, 'tokenizer',
+                      header='Tokenization', callback=self.demo_changed)
 
-        combo_box = gui.comboBox(tokenization_box, self, "tokenizer_ind", items=self.TOKENIZERS,
-                                 callback=self.tokenizer_changed)
-
-        self.tokenizer_option_box = gui.widgetBox(tokenization_box)
-        self.tokenizer_options = []
-
-        settings_layout.addWidget(tokenization_box)
+        settings_layout.addLayout(cb.layout)
 
         # Filtering
-        self.filtering_check_list = CheckList(self.controlArea, self.FILTERS,
-                                              self.preprocessor, 'token_filters',
-                                              header='Filtering', callback=self.demo_changed)
+        cl = CheckList(self.controlArea, self.FILTERS, self.preprocessor, 'token_filters',
+                       header='Filtering', callback=self.demo_changed)
 
-        settings_layout.addLayout(self.filtering_check_list.layout)
+        settings_layout.addLayout(cl.layout)
+        self.filtering_check_list = cl
 
         # Normalization
-        self.normalizer = None
-        normalization_box = gui.widgetBox(self.controlArea, "Normalization", addSpace=False)
-        settings_layout.addWidget(normalization_box)
-
-        combo_box = gui.comboBox(normalization_box, self, "normalizer_ind", items=self.NORMALIZERS,
-                                 callback=self.normalizer_changed)
+        cb = ComboBox(self.controlArea, self.NORMALIZERS, self.preprocessor, 'token_normalizer',
+                      header='Normalization', callback=self.demo_changed)
+        settings_layout.addLayout(cb.layout)
 
         vbox.addLayout(settings_layout)
 
@@ -136,36 +169,20 @@ class OWPreprocess(OWWidget):
         self.layout().insertLayout(1, vbox)
         self.apply()
 
-    def tokenizer_changed(self):
-        self.tokenizer = self.TOKENIZERS[self.tokenizer_ind]
-        self.preprocessor.tokenizer = self.tokenizer
-        self.clear_options(self.tokenizer_options)
-        self.tokenizer_options = []
-        if self.tokenizer:
-            if self.tokenizer.options:
-                for option in self.tokenizer.options:
-                    if isinstance(option, StringOption):
-                        lab = gui.lineEdit(self.tokenizer_option_box, self.tokenizer,
-                                           option.name)
-                        lab.setPlaceholderText(option.verbose_name)
-                        self.tokenizer_options.append(lab)
-
-        self.demo_changed()
-
-    def normalizer_changed(self):
-        self.normalizer = self.NORMALIZERS[self.normalizer_ind]
-        self.preprocessor.token_normalizer = self.normalizer
-        self.demo_changed()
-
     def apply(self):
         self.send(Output.PREPROCESSOR, self.preprocessor)
 
     def demo_changed(self, **args):
-        self.demo_result.setText(
-            str(self.preprocessor(self.line_edit.text()))
-        )
+        try:
+            if self.preprocessor.tokenizer:
+                self.preprocessor.tokenizer.validate()
 
-    def clear_options(self, option_list):
-        for option_widget in option_list:
-            option_widget.setParent(None)
-            option_widget.deleteLater()
+            self.demo_result.setText(
+                str(self.preprocessor(self.line_edit.text()))
+            )
+            self.demo_result.setStyleSheet('color: black')
+        except BaseOption.ValidationError as e:
+            self.demo_result.setText(
+                'error: ' + str(e)
+            )
+            self.demo_result.setStyleSheet('color: red')

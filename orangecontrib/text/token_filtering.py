@@ -1,11 +1,13 @@
 from nltk.corpus import stopwords
 
+from orangecontrib.text.utils import BaseWrapper
+
 __all__ = [
     "FILTERS", "StopWordsFilter", "LexiconFilter", "HashTagFilter", "UserNameFilter"
 ]
 
 
-class BaseTokenFilter:
+class BaseTokenFilter(BaseWrapper):
 
     def __call__(self, corpus):
         if len(corpus) == 0:
@@ -20,19 +22,13 @@ class BaseTokenFilter:
     def check(self, token):
         raise NotImplementedError("This method isn't implemented yet.")
 
-    @property
-    def name(self):
-        raise NotImplementedError("{} doesn't have name.".format(self.__class__))
-
-    def __str__(self):
-        return self.name
-
 
 class StopWordsFilter(BaseTokenFilter):
     name = 'Stopwords'
 
     def __init__(self, language=None, stop_words=None):
         # TODO add language and corpus checker
+        super().__init__()
         self.language = language
         self.stop_words = stop_words if stop_words else set()
 
@@ -47,6 +43,7 @@ class LexiconFilter(BaseTokenFilter):
     name = 'Lexicon'
 
     def __init__(self, vocabulary):
+        super().__init__()
         self.vocabulary = vocabulary
 
     def check(self, token):

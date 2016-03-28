@@ -3,13 +3,15 @@ import re
 from bs4 import BeautifulSoup
 from sklearn.feature_extraction.text import strip_accents_unicode
 
+from orangecontrib.text.utils import BaseWrapper
+
 __all__ = [
     "HtmlStringTransformer", "WhitespaceStringTransformer",
     "LowercaseStringTransformer", "StripAccentsStringTransformer"
 ]
 
 
-class BaseStringTransformer:
+class BaseStringTransformer(BaseWrapper):
     def __call__(self, data):
         """Transforms strings in given object.
 
@@ -26,10 +28,6 @@ class BaseStringTransformer:
             return [self.transform(string) for string in data]
         raise TypeError("Param 'data' has unknown type.")
 
-    @property
-    def name(self):
-        raise NotImplementedError("{} doesn't have name.".format(self.__class__))
-
     @classmethod
     def transform(cls, string):
         """Process given string.
@@ -43,14 +41,6 @@ class BaseStringTransformer:
         """
         raise NotImplementedError("Method 'transform' isn't implemented "
                                   "for '{cls}' class".format(cls=cls.__name__))
-
-    def __str__(self):
-        return self.name
-
-    @staticmethod
-    def _check_str_type(string):
-        if not isinstance(string, str):
-            raise TypeError("'string' argument must be a string")
 
 
 class LowercaseStringTransformer(BaseStringTransformer):

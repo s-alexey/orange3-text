@@ -2,13 +2,12 @@ import collections
 from nltk.stem.porter import PorterStemmer
 from nltk.stem import WordNetLemmatizer
 
-from orangecontrib.text.utils import BaseOption
-
+from orangecontrib.text.utils import BaseOption, BaseWrapper
 
 __all__ = ['StemNormalizer', 'DictionaryLookupNormalizer', 'NORMALIZERS']
 
 
-class BaseTokenNormalizer:
+class BaseTokenNormalizer(BaseWrapper):
     def __call__(self, tokens):
         """
         :param tokens: token or collection of token to transform.
@@ -27,16 +26,6 @@ class BaseTokenNormalizer:
         raise NotImplementedError("Class '{name}' doesn't implement method "
                                   "'normalize'".format(name=cls.__name__))
 
-    @staticmethod
-    def _check_iterable(obj):
-        if not isinstance(obj, collections.Iterable):
-            raise TypeError("'obj' must be iterable")
-
-    @staticmethod
-    def _check_str_type(string):
-        if not isinstance(string, str):
-            raise TypeError("'string' param must be a string")
-
 
 class StemNormalizer(BaseTokenNormalizer):
     """ A common class for token normalisation (stemming/lemmatization).
@@ -49,6 +38,7 @@ class StemNormalizer(BaseTokenNormalizer):
         :type name: verbose method name
         :param options: additional arguments
         """
+        super().__init__()
         self._check_str_type(name)
         self.name = name
 
@@ -79,14 +69,12 @@ class StemNormalizer(BaseTokenNormalizer):
         self._check_str_type(token)
         return self.normalizer(token)
 
-    def __str__(self):
-        return self.name
-
 
 class DictionaryLookupNormalizer(BaseTokenNormalizer):
     """ Normalize token with dictionary (abbreviation, slang and ect.)
     """
     def __init__(self, dictionary):
+        super().__init__()
         if not isinstance(dictionary, dict):
             raise ValueError("dictionary must be a 'dict' instance.")
 

@@ -1,12 +1,13 @@
-import collections
+import re
+
 from nltk import tokenize
 
-from orangecontrib.text.utils import StringOption, BaseOption
+from orangecontrib.text.utils import StringOption, BaseWrapper
 
 __all__ = ["NltkTokenizer", "TOKENIZERS"]
 
 
-class BaseTokenizer:
+class BaseTokenizer(BaseWrapper):
     """ Splits given string into sequence (tuple) of tokens.
     """
     def __call__(self, sent):
@@ -23,49 +24,19 @@ class BaseTokenizer:
         self._check_iterable(strings)
         return [self.tokenize(string) for string in strings]
 
-    @staticmethod
-    def _check_iterable(obj):
-        if not isinstance(obj, collections.Iterable):
-            raise TypeError("'obj' must be iterable")
-
-    @staticmethod
-    def _check_str_type(string):
-        if not isinstance(string, str):
-            raise TypeError("'string' param must be a string")
-
 
 class NltkTokenizer(BaseTokenizer):
     """ Holds tokenizer object (nltk.tokenize.api.TokenizeI)
     """
-    def __init__(self, tokenizer, name="Tokenizer", options=None):
-        """
-        :param tokenizer: nltk tokenizer class or tokenize-function
-        :type tokenizer: nltk.tokenize.api.TokenizeI or function
-        :param name: verbose tokenizer name
-        :type name: str
-        :param options: options to given tokenizer
-        :return:
-        """
-        self._check_str_type(name)
-        self.name = name
+    tokenizer_cls = None
+    tokenizer = None
+    name = 'Tokenizer'
 
-        if hasattr(tokenizer, 'tokenize'):
-            self.tokenizer_cls = tokenizer
-            self.tokenizer = None
-        elif callable(tokenizer):
-            self.tokenizer_cls = None
-            self.tokenizer = tokenizer
+    def __init__(self):
+        super().__init__()
+        self.update_configuration()
 
-        self.options = options if options else tuple()
-
-        for option in self.options:
-            if not isinstance(option, BaseOption):
-                raise TypeError('Options should be an BaseOption subclass instance.')
-            setattr(self, option.name, option.default)
-
-        self._update_tokenizer()
-
-    def _update_tokenizer(self):
+    def update_configuration(self):
         if self.tokenizer_cls is not None:
             kwargs = {opt.name: getattr(self, opt.name) for opt in self.options}
             self.tokenizer = self.tokenizer_cls(**kwargs).tokenize
@@ -74,19 +45,43 @@ class NltkTokenizer(BaseTokenizer):
         self._check_str_type(string)
         return self.tokenizer(string)
 
-    def __str__(self):
-        return self.name
+
+class WordPunctTokenizer(NltkTokenizer):
+    tokenizer_cls = tokenize.WordPunctTokenizer
+    name = 'Word & punctuation'
 
 
-TOKENIZERS = [
-    ('Word & punctuation', tokenize.WordPunctTokenizer, None),
-    ('Space', tokenize.SpaceTokenizer, None),
-    ('Line', tokenize.LineTokenizer, None),
-    ('Regex', tokenize.RegexpTokenizer,
-     [StringOption(name='pattern', default='\w+', verbose_name='Pattern')]),
-    ('Tweet', tokenize.TweetTokenizer, None),
-    ('Blank line', tokenize.BlanklineTokenizer, None),
-]
+class WhitespaceTokenizer(NltkTokenizer):
+    tokenizer_cls = tokenize.WhitespaceTokenizer
+    name = 'Whitespace'
 
-TOKENIZERS = list(NltkTokenizer(tokenizer, name, options)
-                  for name, tokenizer, options in TOKENIZERS)
+
+class LineTokenizer(NltkTokenizer):
+    tokenizer_cls = tokenize.LineTokenizer
+    name = 'Line'
+
+
+def validate_regexp(regexp):
+    try:
+        re.compile(regexp)
+    except re.error as e:
+        raise StringOption.ValidationError(str(e))
+
+
+class RegexpTokenizer(NltkTokenizer):
+
+    tokenizer_cls = tokenize.RegexpTokenizer
+    name = 'Regexp'
+    options = (
+        StringOption(name='pattern', default='\w+', verbose_name='Pattern',
+                     validator=validate_regexp),
+    )
+
+
+class TweetTokenizer(NltkTokenizer):
+    tokenizer_cls = tokenize.TweetTokenizer
+    name = 'Tweet'
+
+
+TOKENIZERS = [WordPunctTokenizer(), WhitespaceTokenizer(), RegexpTokenizer(),
+              TweetTokenizer(), LineTokenizer()]
