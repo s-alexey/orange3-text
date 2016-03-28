@@ -168,11 +168,12 @@ class OWPreprocess(OWWidget):
 
         self.layout().insertLayout(1, vbox)
         self.apply()
+        self.demo_changed()
 
     def apply(self):
         self.send(Output.PREPROCESSOR, self.preprocessor)
 
-    def demo_changed(self, **args):
+    def demo_changed(self):
         try:
             if self.preprocessor.tokenizer:
                 self.preprocessor.tokenizer.validate()

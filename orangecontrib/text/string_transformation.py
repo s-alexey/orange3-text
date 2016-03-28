@@ -44,7 +44,7 @@ class BaseStringTransformer(BaseWrapper):
 
 
 class LowercaseStringTransformer(BaseStringTransformer):
-    """Convert all characters to lowercase.
+    """Converts all characters to lowercase.
     """
     name = 'Lowercase'
 
@@ -55,7 +55,7 @@ class LowercaseStringTransformer(BaseStringTransformer):
 
 
 class StripAccentsStringTransformer(BaseStringTransformer):
-    """Remove accents.
+    """Removes accents.
     """
     name = "Remove accents"
 

@@ -78,20 +78,34 @@ class BaseOption:
 
 
 class StringOption(BaseOption):
+    def __init__(self, name, default=None, verbose_name=None, validator=None, choices=None):
+        super().__init__(name, default, verbose_name, validator)
+        self.choices = choices
+
     def as_widget(self, callback=None):
         self.callback = callback
+        if self.choices:
+            combo_box = QtGui.QComboBox()
+            combo_box.addItems(self.choices)
+            combo_box.setCurrentIndex(self.choices.index(self.default))
 
-        line = QtGui.QLineEdit()
-        line.setText(self.default)
-        line.textChanged.connect(self.on_change)
+            combo_box.currentIndexChanged.connect(self.selected_choice_changed)
+            return combo_box
+        else:
+            line = QtGui.QLineEdit()
+            line.setText(self.default)
+            line.textChanged.connect(self.on_change)
 
-        return line
+            return line
 
     def on_change(self, string):
         setattr(self.owner, self.name, string)
         self.owner.update_configuration()
         if self.callback:
             self.callback()
+
+    def selected_choice_changed(self, i):
+        self.on_change(self.choices[i])
 
 
 class BoolOption(BaseOption):

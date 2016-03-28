@@ -1,9 +1,11 @@
+import os
+
 from nltk.corpus import stopwords
 
-from orangecontrib.text.utils import BaseWrapper
+from orangecontrib.text.utils import BaseWrapper, StringOption
 
 __all__ = [
-    "FILTERS", "StopWordsFilter", "LexiconFilter", "HashTagFilter", "UserNameFilter"
+    "FILTERS", "StopwordsFilter", "LexiconFilter", "HashTagFilter", "UserNameFilter"
 ]
 
 
@@ -23,20 +25,27 @@ class BaseTokenFilter(BaseWrapper):
         raise NotImplementedError("This method isn't implemented yet.")
 
 
-class StopWordsFilter(BaseTokenFilter):
+def nltk_languages():
+    return [file.capitalize() for file in os.listdir(stopwords._get_root())
+            if file.islower()]
+
+
+class StopwordsFilter(BaseTokenFilter):
     name = 'Stopwords'
 
-    def __init__(self, language=None, stop_words=None):
-        # TODO add language and corpus checker
-        super().__init__()
-        self.language = language
-        self.stop_words = stop_words if stop_words else set()
+    options = (
+        StringOption('language', 'English', 'Language', choices=nltk_languages()),
+    )
 
-        if self.language:
-            self.stop_words.update(set(stopwords.words(language)))
+    def __init__(self):
+        super().__init__()
+        self.stopwords = set()
+
+    def update_configuration(self):
+        self.stopwords = set(stopwords.words(self.language.lower()))
 
     def check(self, token):
-        return token not in self.stop_words
+        return token not in self.stopwords
 
 
 class LexiconFilter(BaseTokenFilter):
@@ -65,4 +74,4 @@ class UserNameFilter(BaseTokenFilter):
     def check(cls, token):
         return not token.startswith('@')
 
-FILTERS = [StopWordsFilter('english'), HashTagFilter(), UserNameFilter()]
+FILTERS = [StopwordsFilter(), HashTagFilter(), UserNameFilter()]
