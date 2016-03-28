@@ -44,6 +44,9 @@ class TokenNormalizerTests(unittest.TestCase):
 
 class DictionaryLookupNormalizerTests(unittest.TestCase):
 
+    def test_init(self):
+        self.assertRaises(TypeError, DictionaryLookupNormalizer, 'not a dictionary')
+
     def test_normalize(self):
         dln = DictionaryLookupNormalizer(dictionary={'aka': 'also known as'})
         self.assertEqual(dln.normalize('aka'), 'also known as')

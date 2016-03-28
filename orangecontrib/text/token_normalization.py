@@ -43,7 +43,7 @@ class DictionaryLookupNormalizer(BaseTokenNormalizer):
     def __init__(self, dictionary):
         super().__init__()
         if not isinstance(dictionary, dict):
-            raise ValueError("dictionary must be a 'dict' instance.")
+            raise TypeError("dictionary must be a 'dict' instance.")
 
         self.dictionary = dictionary
 

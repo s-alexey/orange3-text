@@ -64,6 +64,7 @@ class LineTokenizer(NltkTokenizer):
 def validate_regexp(regexp):
     try:
         re.compile(regexp)
+        return True
     except re.error as e:
         raise StringOption.ValidationError(str(e))
 

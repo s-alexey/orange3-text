@@ -1,8 +1,10 @@
 import unittest
 from orangecontrib.text.tokenization import BaseTokenizer, NltkTokenizer, \
-    RegexpTokenizer
+    RegexpTokenizer, validate_regexp
 
 from nltk import tokenize
+
+from orangecontrib.text.utils import BaseOption
 
 
 class BaseTokenizerTests(unittest.TestCase):
@@ -44,3 +46,13 @@ class NltkTokenizerTests(unittest.TestCase):
         tokenizer = RegexpTokenizer()
         self.assertRaises(TypeError, tokenizer.tokenize, 1)
         self.assertRaises(TypeError, tokenizer.tokenize, ['1', 2])
+
+
+class TestRegexpValidator(unittest.TestCase):
+    def test_valid_regexp(self):
+        self.assertTrue(validate_regexp('\w+'))
+
+    def test_ivalid_regext(self):
+        self.assertRaises(BaseOption.ValidationError, validate_regexp, '\\')
+        self.assertRaises(BaseOption.ValidationError, validate_regexp, '[')
+        self.assertRaises(BaseOption.ValidationError, validate_regexp, ')?')

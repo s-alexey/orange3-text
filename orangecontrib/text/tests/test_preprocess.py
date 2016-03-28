@@ -20,6 +20,11 @@ class PreprocessTests(unittest.TestCase):
         "Graph minors IV Widths of trees and well quasi ordering",
         "Graph minors A survey",
     ]
+    def test_call(self):
+        p = Preprocessor()
+        self.assertEqual(p(self.sentence), self.sentence)
+        self.assertEqual(p(self.corpus), self.corpus)
+        self.assertRaises(TypeError, p, 1)
 
     def test_string_processor(self):
         class StripStringTransformer(BaseStringTransformer):

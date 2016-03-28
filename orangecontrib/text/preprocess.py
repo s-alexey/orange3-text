@@ -9,23 +9,24 @@ class Preprocessor:
     def __init__(self, string_transformers=None, tokenizer=None,
                  token_normalizer=None, token_filters=None):
 
-        if string_transformers is None:
-            self.string_transformers = None
-        elif callable(string_transformers):
-            self.string_transformers = [string_transformers]
-        elif isinstance(string_transformers, collections.Iterable):
+        if callable(string_transformers):
+            string_transformers = [string_transformers]
+        if callable(token_filters):
+            token_filters = [token_filters]
+
+        if isinstance(string_transformers, collections.Iterable) \
+                or string_transformers is None:
             self.string_transformers = string_transformers
         else:
-            raise TypeError("Type '{}' not supported.".format(type(string_transformers)))
+            raise TypeError("Unknown type '{}' for string transformers."
+                            .format(type(string_transformers)))
 
-        if token_filters is None:
-            self.token_filters = None
-        elif callable(token_filters):
-            self.token_filters = [token_filters]
-        elif isinstance(token_filters, collections.Iterable):
+        if isinstance(token_filters, collections.Iterable) \
+                or token_filters is None:
             self.token_filters = token_filters
         else:
-            raise TypeError("Type '{}' is not supported.".format(type(token_filters)))
+            raise TypeError("Unknown Type '{}' for token filters."
+                            .format(type(token_filters)))
 
         self.tokenizer = tokenizer
         self.token_normalizer = token_normalizer
