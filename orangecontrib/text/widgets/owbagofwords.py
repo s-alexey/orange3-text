@@ -1,12 +1,13 @@
-import numpy as np
-from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from PyQt4 import QtGui
 
 from Orange.widgets.widget import OWWidget
 from Orange.widgets.settings import Setting
 from Orange.widgets import gui
-from Orange.data import Table, DiscreteVariable, ContinuousVariable, Domain, StringVariable
+from Orange.data import Table
 from orangecontrib.text.corpus import Corpus
 from orangecontrib.text.preprocess import Preprocessor
+from orangecontrib.text.vectorizer import TfidfVectorizerWrapper, CountVectorizerWrapper
+from orangecontrib.text.widgets.components import ComboBox
 
 
 class Output:
@@ -26,101 +27,71 @@ class OWBagOfWords(OWWidget):
     outputs = [(Output.DATA, Table)]
     want_main_area = False
 
-    _normalization_options = ['(none)', 'L1 (sum of elements)', 'L2 (Euclidean)']
-
-    # Settings
-    use_tfidf = Setting(False)
-    normalization_type = Setting(0)
+    VECTORIZERS = [CountVectorizerWrapper(), TfidfVectorizerWrapper()]
 
     def __init__(self):
         super().__init__()
 
         self.corpus = None
-        self.preprocessor = None
+        self.preprocessor = Preprocessor()
         self.normalization = None
 
-        # Pre-processing info.
-        pp_info_box = gui.widgetBox(self.controlArea, "Pre-processing info")
+        vbox = QtGui.QVBoxLayout()
+        vbox.setMargin(10)
 
-        pp_info = "Includes punctuation: {}\n" \
-                  "Lowercase: {}\n" \
-                  "Transformation: {}\n" \
-                  "Stop words removed: {}\n" \
-                  "TF-IDF performed: {}\n" \
-                  "Normalization: {}"\
-            .format(False, False, None, None,
-                    self.use_tfidf, self.normalization)
-        self.pp_info_label = gui.label(pp_info_box, self, pp_info)
+        # Pre-processing info.
+        pp_info_layout = QtGui.QVBoxLayout()
+
+        pp_info_box = gui.widgetBox(self.controlArea, "Pre-processing info",
+                                    addSpace=False)
+        pp_info_layout.addWidget(pp_info_box)
+
+        pp_info = str(self.preprocessor)
+
+        self.pp_info_label = QtGui.QLabel()
+        self.pp_info_label.setWordWrap(True)
+        self.pp_info_label.setText(pp_info)
+
+        pp_info_layout.addWidget(self.pp_info_label)
+
+        vbox.addLayout(pp_info_layout)
 
         # TF-IDF.
-        tfidf_box = gui.widgetBox(self.controlArea, "TF-IDF", addSpace=False)
+        self.vectorizer = None
+        combo_box = ComboBox(self.controlArea, items=self.VECTORIZERS,
+                             owner=self, attribute='vectorizer', header='Vectorizer',
+                             callback=self.configuration_changed)
 
-        self.tfidf_chbox = gui.checkBox(tfidf_box, self, "use_tfidf", "Use TF-IDF")
-        self.tfidf_chbox.stateChanged.connect(self._tfidf_changed)
-        ibox = gui.indentedBox(tfidf_box)
-        self.norm_combo = gui.comboBox(ibox, self, 'normalization_type',
-                                       items=self._normalization_options,
-                                       label="Normalization:")
-        self.norm_combo.activated[int].connect(self._select_normalization)
-        self.norm_combo.setEnabled(self.use_tfidf)
+        self.vectorizers_layout = combo_box.layout
+        vbox.addLayout(self.vectorizers_layout)
 
-        gui.button(self.controlArea, self, "&Apply", callback=self.apply, default=True)
+        button = gui.button(self.controlArea, self, "&Apply", callback=self.apply, default=True)
+        vbox.addWidget(button)
+        self.layout().insertLayout(1, vbox)
 
     def set_preprocessor(self, data):
         self.preprocessor = data
+        self.vectorizer.preprocessor = self.preprocessor
+        self.pp_info_label.setText(str(self.preprocessor))
 
     def set_corpus(self, data):
         self.corpus = data
         self.apply()
 
     def apply(self):
-        # TODO Move the logic to the scripting module.
         new_table = None
         if self.corpus:
-            if self.preprocessor:
-                if self.use_tfidf:
-                    cv = TfidfVectorizer(lowercase=self.preprocessor.lowercase,
-                                         stop_words=self.preprocessor.stop_words,
-                                         preprocessor=self.preprocessor.transformation,
-                                         norm=self.normalization)
-                else:
-                    cv = CountVectorizer(lowercase=self.preprocessor.lowercase,
-                                         stop_words=self.preprocessor.stop_words,
-                                         preprocessor=self.preprocessor.transformation)
+            new_table = self.vectorizer.fit_transform(self.corpus)
 
-                pp_info_tag = "Includes punctuation: {}\nLowercase: {}\n" \
-                              "Transformation: {}\n" \
-                              "Stop words removed: {}\n" \
-                              "TF-IDF performed: {}\n" \
-                              "Normalization: {}"\
-                    .format(self.preprocessor.incl_punct, self.preprocessor.lowercase,
-                            str(self.preprocessor.transformation),
-                            self.preprocessor.stop_words, self.use_tfidf,
-                            self._normalization_options[self.normalization_type])
-                self.pp_info_label.setText(pp_info_tag)
-            else:
-                cv = CountVectorizer(lowercase=True,
-                                     binary=True)
-
-            documents = self.corpus.documents
-            feats = cv.fit(documents)  # Features.
-            freqs = feats.transform(documents).toarray()  # Frequencies.
-
-            # Generate the domain attributes.
-            attr = [ContinuousVariable(f) for f in feats.get_feature_names()]
-
-            # Construct a new domain.
-            domain = Domain(attr, self.corpus.domain.class_vars, metas=self.corpus.domain.metas)
-
-            # Create the table.
-            new_table = Table.from_numpy(domain, freqs, Y=self.corpus._Y, metas=self.corpus.metas)
         self.send("Data", new_table)
 
-    def _select_normalization(self, n):
-        if n > 0:
-            self.normalization = self._normalization_options[n].split(" ")[0].lower()
-        else:
-            self.normalization = None
+    def configuration_changed(self):
+        pass
 
-    def _tfidf_changed(self):
-        self.norm_combo.setEnabled(self.use_tfidf)
+
+if __name__ == "__main__":
+    a = QtGui.QApplication([])
+    ow = OWBagOfWords()
+    ow.show()
+    a.exec_()
+    ow.saveSettings()

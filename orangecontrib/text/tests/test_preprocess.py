@@ -20,6 +20,7 @@ class PreprocessTests(unittest.TestCase):
         "Graph minors IV Widths of trees and well quasi ordering",
         "Graph minors A survey",
     ]
+
     def test_call(self):
         p = Preprocessor()
         self.assertEqual(p(self.sentence), self.sentence)
@@ -77,5 +78,3 @@ class PreprocessTests(unittest.TestCase):
 
         p = Preprocessor(tokenizer=SpaceTokenizer(), token_filters=LengthFilter())
         self.assertEqual(p(self.sentence), ['for', 'lab', 'abc'])
-
-

@@ -6,13 +6,22 @@ class BaseWrapper:
     name = ''
     options = tuple()
 
-    def __init__(self):
-        self.options = self.options
+    def __init__(self, **kwargs):
+        self._option_names = set()
+
         for option in self.options:
             if not isinstance(option, BaseOption):
                 raise TypeError('Options should be a BaseOption subclass instance.')
             setattr(self, option.name, option.default)
             option.set_owner(self)
+            self._option_names.add(option.name)
+
+        # allows overwrite default values in constructor call
+        for arg, value in kwargs.items():
+            if arg in self._option_names:
+                setattr(self, arg, value)
+            else:
+                raise ValueError('Unknown argument `{}`'.format(arg))
 
         self.update_configuration()
 
@@ -30,9 +39,9 @@ class BaseWrapper:
         return self.name
 
     def options_layout(self, parent=None, callback=None):
-        layout = QtGui.QVBoxLayout(parent)
+        layout = QtGui.QFormLayout(parent)
         for option in self.options:
-            layout.addWidget(option.as_widget(callback=callback))
+            layout.addRow(option.verbose_name, option.as_widget(callback=callback))
 
         return layout
 
@@ -88,7 +97,9 @@ class BaseOption:
 class StringOption(BaseOption):
     def __init__(self, name, default=None, verbose_name=None, validator=None, choices=None):
         super().__init__(name, default, verbose_name, validator)
-        if choices:
+
+        self.choices = choices
+        if self.choices:
             if isinstance(choices[0], str):
                 self.choices = choices
                 self.choice_values = choices
@@ -119,7 +130,9 @@ class StringOption(BaseOption):
 class BoolOption(BaseOption):
     def as_widget(self, callback=None):
         self.callback = callback
-        checkbox = QtGui.QCheckBox(self.verbose_name)
+        checkbox = QtGui.QCheckBox()
+        checkbox.setChecked(self.default)
+
         if callback:
             checkbox.stateChanged.connect(self.on_change)
         return checkbox

@@ -8,7 +8,7 @@ from orangecontrib.text.tokenization import TOKENIZERS
 from orangecontrib.text.token_filtering import FILTERS
 from orangecontrib.text.token_normalization import NORMALIZERS
 from orangecontrib.text.utils import BaseOption
-from orangecontrib.text.widgets.compopnents import CheckList, ComboBox
+from orangecontrib.text.widgets.components import CheckList, ComboBox
 
 
 class Output:

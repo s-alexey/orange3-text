@@ -16,14 +16,14 @@ class Preprocessor:
 
         if isinstance(string_transformers, collections.Iterable) \
                 or string_transformers is None:
-            self.string_transformers = string_transformers
+            self.string_transformers = string_transformers or []
         else:
             raise TypeError("Unknown type '{}' for string transformers."
                             .format(type(string_transformers)))
 
         if isinstance(token_filters, collections.Iterable) \
                 or token_filters is None:
-            self.token_filters = token_filters
+            self.token_filters = token_filters or []
         else:
             raise TypeError("Unknown Type '{}' for token filters."
                             .format(type(token_filters)))
@@ -53,3 +53,11 @@ class Preprocessor:
         if self.token_normalizer:
             tokens = self.token_normalizer(tokens)
         return tokens
+
+    def __str__(self):
+        return '\n'.join([
+            "Transformers: " + ', '.join(str(tr) for tr in self.string_transformers),
+            "Tokenizer: " + str(self.tokenizer),
+            "Filters: " + ', '.join(str(f) for f in self.token_filters),
+            "Normalizer: " + str(self.token_normalizer),
+        ])
