@@ -78,18 +78,30 @@ class BaseOption:
         if self.validator:
             self.validator(getattr(self.owner, self.name))
 
+    def on_change(self, string):
+        setattr(self.owner, self.name, string)
+        self.owner.update_configuration()
+        if self.callback:
+            self.callback()
+
 
 class StringOption(BaseOption):
     def __init__(self, name, default=None, verbose_name=None, validator=None, choices=None):
         super().__init__(name, default, verbose_name, validator)
-        self.choices = choices
+        if choices:
+            if isinstance(choices[0], str):
+                self.choices = choices
+                self.choice_values = choices
+            else:
+                self.choices = [c[0] for c in choices]
+                self.choice_values = [c[1] for c in choices]
 
     def as_widget(self, callback=None):
         self.callback = callback
         if self.choices:
             combo_box = QtGui.QComboBox()
             combo_box.addItems(self.choices)
-            combo_box.setCurrentIndex(self.choices.index(self.default))
+            combo_box.setCurrentIndex(self.choice_values.index(self.default))
 
             combo_box.currentIndexChanged.connect(self.selected_choice_changed)
             return combo_box
@@ -100,15 +112,47 @@ class StringOption(BaseOption):
 
             return line
 
-    def on_change(self, string):
-        setattr(self.owner, self.name, string)
-        self.owner.update_configuration()
-        if self.callback:
-            self.callback()
-
     def selected_choice_changed(self, i):
-        self.on_change(self.choices[i])
+        self.on_change(self.choice_values[i])
 
 
 class BoolOption(BaseOption):
-    pass
+    def as_widget(self, callback=None):
+        self.callback = callback
+        checkbox = QtGui.QCheckBox(self.verbose_name)
+        if callback:
+            checkbox.stateChanged.connect(self.on_change)
+        return checkbox
+
+
+class IntegerOption(BaseOption):
+    def __init__(self, name, default=None, verbose_name=None, validator=None, range=(0, 100), step=1):
+        super().__init__(name, default, verbose_name, validator)
+        self.step = step
+        self.range = range
+
+    def as_widget(self, callback=None):
+        self.callback = callback
+
+        spin_box = QtGui.QSpinBox()
+        spin_box.setRange(*self.range)
+        spin_box.setSingleStep(1)
+        spin_box.setValue(self.default)
+        spin_box.valueChanged.connect(self.on_change)
+        return spin_box
+
+
+class FloatOption(BaseOption):
+    def __init__(self, name, default=None, verbose_name=None, validator=None, range=(0, 1), step=.1):
+        super().__init__(name, default, verbose_name, validator)
+        self.step = step
+        self.range = range
+
+    def as_widget(self, callback=None):
+        self.callback = callback
+        spin_box = QtGui.QDoubleSpinBox()
+        spin_box.setRange(*self.range)
+        spin_box.setSingleStep(self.step)
+        spin_box.setValue(self.default)
+        spin_box.valueChanged.connect(self.on_change)
+        return spin_box

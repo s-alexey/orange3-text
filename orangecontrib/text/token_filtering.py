@@ -26,7 +26,7 @@ class BaseTokenFilter(BaseWrapper):
 
 
 def nltk_languages():
-    return [file.capitalize() for file in os.listdir(stopwords._get_root())
+    return [(file.capitalize(), file) for file in os.listdir(stopwords._get_root())
             if file.islower()]
 
 
@@ -34,7 +34,7 @@ class StopwordsFilter(BaseTokenFilter):
     name = 'Stopwords'
 
     options = (
-        StringOption('language', 'English', 'Language', choices=nltk_languages()),
+        StringOption('language', 'english', 'Language', choices=nltk_languages()),
     )
 
     def __init__(self):

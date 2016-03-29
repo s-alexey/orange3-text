@@ -1,17 +1,14 @@
 import collections
 from nltk import stem
 
-from orangecontrib.text.utils import BaseOption, BaseWrapper, StringOption
+from orangecontrib.text.utils import BaseWrapper, StringOption
 
 __all__ = ['NltkStemNormalizer', 'DictionaryLookupNormalizer', 'NORMALIZERS']
 
 
 class BaseTokenNormalizer(BaseWrapper):
     def __call__(self, tokens):
-        """
-        :param tokens: token or collection of token to transform.
-        :type tokens: str or Iterable
-        :return: str or Iterable
+        """Normalizes given tokens.
         """
         if isinstance(tokens, str):
             return self.normalize(tokens)
