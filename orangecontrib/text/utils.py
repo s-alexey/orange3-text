@@ -3,7 +3,19 @@ import collections
 
 
 class BaseWrapper:
+    """Wraps a class and provides a mutable instance.
+
+    Attributes:
+        name (str): Human readable name of wrapped object.
+        wrapped_class (type): A class that will be wrapped
+        wrapped_object (object): An instance of the wrapped class
+        options: (List[BaseOption]): A list of options that will be passed
+            to `wrapped_class` constructor call.
+    """
+
     name = ''
+    wrapped_class = object
+    wrapped_object = None
     options = tuple()
 
     def __init__(self, **kwargs):
@@ -46,7 +58,8 @@ class BaseWrapper:
         return layout
 
     def update_configuration(self):
-        pass
+        kwargs = {opt.name: getattr(self, opt.name) for opt in self.options}
+        self.wrapped_object = self.wrapped_class(**kwargs)
 
     def on_change(self):
         pass
@@ -59,10 +72,13 @@ class BaseWrapper:
 class BaseOption:
 
     def __init__(self, name, default=None, verbose_name=None, validator=None):
-        """
-        :param name: option name (should be a valid identifier)
-        :param default:
-        :param verbose_name:
+        """Option is a proxy between gui and wrapped object.
+
+        Arguments:
+            name (str): An option identifier.
+            default: A default option value.
+            verbose_name (Optional[str]): Human readable description of the option.
+            validator (Optional[Callable]): An option values validator.
         """
         if not isinstance(name, str) and not name.isidentifier():
             raise ValueError("'name' should be a valid identifier.")

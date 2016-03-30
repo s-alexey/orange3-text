@@ -25,7 +25,7 @@ class NltkTokenizerTests(unittest.TestCase):
 
     def test_tokenizer_instance(self):
         class WhitespaceTokenizer(NltkTokenizer):
-            tokenizer_cls = tokenize.WhitespaceTokenizer
+            wrapped_class = tokenize.WhitespaceTokenizer
             name = 'whitespace'
 
         tokenizer = WhitespaceTokenizer()

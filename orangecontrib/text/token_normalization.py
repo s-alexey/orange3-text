@@ -52,28 +52,27 @@ class NltkStemNormalizer(BaseTokenNormalizer):
     """ A common class for token stemming (nltk.stem).
     """
     name = "Stemmer"
-    normalizer_cls = None
+    wrapped_class = None
 
-    def update_configuration(self):
-        if self.normalizer_cls is not None:
-            kwargs = {opt.name: getattr(self, opt.name) for opt in self.options}
-            self.normalizer = self.normalizer_cls(**kwargs).stem
+    @property
+    def normalizer(self):
+        return self.wrapped_object
 
     def normalize(self, token):
         self._check_str_type(token)
-        return self.normalizer(token)
+        return self.normalizer.stem(token)
 
 
 class PorterStemmer(NltkStemNormalizer):
 
     name = "Porter stemmer"
-    normalizer_cls = stem.PorterStemmer
+    wrapped_class = stem.PorterStemmer
 
 
 class SnowballStemmer(NltkStemNormalizer):
 
     name = "Snowball stemmer"
-    normalizer_cls = stem.SnowballStemmer
+    wrapped_class = stem.SnowballStemmer
     options = (
         StringOption(name="language", default="english", verbose_name="Language",
                      choices=stem.SnowballStemmer.languages),

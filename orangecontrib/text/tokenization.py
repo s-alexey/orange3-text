@@ -28,36 +28,33 @@ class BaseTokenizer(BaseWrapper):
 class NltkTokenizer(BaseTokenizer):
     """ Holds tokenizer object (nltk.tokenize.api.TokenizeI)
     """
-    tokenizer_cls = None
-    tokenizer = None
     name = 'Tokenizer'
+
+    @property
+    def tokenizer(self):
+        return self.wrapped_object
 
     def __init__(self):
         super().__init__()
         self.update_configuration()
 
-    def update_configuration(self):
-        if self.tokenizer_cls is not None:
-            kwargs = {opt.name: getattr(self, opt.name) for opt in self.options}
-            self.tokenizer = self.tokenizer_cls(**kwargs).tokenize
-
     def tokenize(self, string):
         self._check_str_type(string)
-        return self.tokenizer(string)
+        return self.tokenizer.tokenize(string)
 
 
 class WordPunctTokenizer(NltkTokenizer):
-    tokenizer_cls = tokenize.WordPunctTokenizer
+    wrapped_class = tokenize.WordPunctTokenizer
     name = 'Word & punctuation'
 
 
 class WhitespaceTokenizer(NltkTokenizer):
-    tokenizer_cls = tokenize.WhitespaceTokenizer
+    wrapped_class = tokenize.WhitespaceTokenizer
     name = 'Whitespace'
 
 
 class LineTokenizer(NltkTokenizer):
-    tokenizer_cls = tokenize.LineTokenizer
+    wrapped_class = tokenize.LineTokenizer
     name = 'Line'
 
 
@@ -71,7 +68,7 @@ def validate_regexp(regexp):
 
 class RegexpTokenizer(NltkTokenizer):
 
-    tokenizer_cls = tokenize.RegexpTokenizer
+    wrapped_class = tokenize.RegexpTokenizer
     name = 'Regexp'
     options = (
         StringOption(name='pattern', default='\w+', verbose_name='Pattern',
@@ -80,7 +77,7 @@ class RegexpTokenizer(NltkTokenizer):
 
 
 class TweetTokenizer(NltkTokenizer):
-    tokenizer_cls = tokenize.TweetTokenizer
+    wrapped_class = tokenize.TweetTokenizer
     name = 'Tweet'
 
 

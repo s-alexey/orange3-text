@@ -6,12 +6,15 @@ from orangecontrib.text.utils import BaseWrapper, StringOption, FloatOption, Boo
 
 class BaseVectorizerWrapper(BaseWrapper):
     name = "Vectorizer"
-    vectorizer_cls = None
     preprocessor = None
+
+    @property
+    def vectorizer(self):
+        return self.wrapped_object
 
     def update_configuration(self):
         kwargs = {opt.name: getattr(self, opt.name) for opt in self.options}
-        self.vectorizer = self.vectorizer_cls(tokenizer=self.preprocessor, **kwargs)
+        self.wrapped_object = self.wrapped_class(tokenizer=self.preprocessor, **kwargs)
 
     def __call__(self, corpus):
         return self.fit_transform(corpus)
@@ -33,7 +36,7 @@ class BaseVectorizerWrapper(BaseWrapper):
 
 class CountVectorizerWrapper(BaseVectorizerWrapper):
     name = "Count vectorizer"
-    vectorizer_cls = CountVectorizer
+    wrapped_class = CountVectorizer
 
     options = (
         FloatOption(name='min_df', default=0., verbose_name="Minimum term's document frequency."),
@@ -44,7 +47,7 @@ class CountVectorizerWrapper(BaseVectorizerWrapper):
 
 class TfidfVectorizerWrapper(BaseVectorizerWrapper):
     name = "Tfidf vectorizer"
-    vectorizer_cls = TfidfVectorizer
+    wrapped_class = TfidfVectorizer
 
     NORMS = (
         ('No normalization', None),
