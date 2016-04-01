@@ -1,5 +1,6 @@
 from PyQt4 import QtGui
 
+from Orange.widgets.settings import Setting
 from Orange.widgets.widget import OWWidget
 from Orange.widgets import gui
 from orangecontrib.text.preprocess import Preprocessor
@@ -29,9 +30,10 @@ class OWPreprocess(OWWidget):
     TRANSFORMERS = TRANSFORMERS
     FILTERS = FILTERS
 
+    preprocessor = Setting(Preprocessor())
+
     def __init__(self):
         super().__init__()
-        self.preprocessor = Preprocessor()
 
         # gui
         self.setMinimumSize(500, 300)

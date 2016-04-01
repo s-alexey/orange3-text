@@ -8,7 +8,6 @@ class CheckList:
     def __init__(self, widget, items, owner, attribute, header='', callback=None):
 
         self.widget = widget
-        self.items = items
         self.owner = owner
         self.attribute = attribute
         self.callback = callback
@@ -19,9 +18,12 @@ class CheckList:
         self.layout.setAlignment(QtCore.Qt.AlignTop)
         self.check_boxes = []
 
+        checked = {item.name: item for item in getattr(self.owner, self.attribute, [])}
+        self.items = [(item if item.name not in checked else checked[item.name]) for item in items]
+
         for item in items:
             check_box = QtGui.QCheckBox(str(item.name))
-            check_box.setChecked(False)
+            check_box.setChecked(item.name in checked)
             check_box.stateChanged.connect(self.change_options)
             self.layout.addWidget(check_box)
             self.check_boxes.append(check_box)
@@ -42,13 +44,19 @@ class CheckList:
 
 class ComboBox:
 
-    selected_item_index = 0
-
     def __init__(self, widget, items, owner, attribute, header='', callback=None):
-        self.items = items
         self.owner = owner
         self.attribute = attribute
         self.callback = callback
+
+        if hasattr(self.owner, attribute):
+            value = getattr(self.owner, attribute)
+            items = [(item if item != value else value) for item in items]
+            self.selected_item_index = items.index(value) if value in items else 0
+        else:
+            self.selected_item_index = 0
+
+        self.items = items
 
         widget_box = gui.widgetBox(widget, header, addSpace=False)
 

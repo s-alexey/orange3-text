@@ -29,6 +29,8 @@ class OWBagOfWords(OWWidget):
 
     VECTORIZERS = [CountVectorizerWrapper(), TfidfVectorizerWrapper()]
 
+    vectorizer = Setting(VECTORIZERS[0])
+
     def __init__(self):
         super().__init__()
 
@@ -56,8 +58,6 @@ class OWBagOfWords(OWWidget):
 
         vbox.addLayout(pp_info_layout)
 
-        # TF-IDF.
-        self.vectorizer = None
         combo_box = ComboBox(self.controlArea, items=self.VECTORIZERS,
                              owner=self, attribute='vectorizer', header='Vectorizer',
                              callback=self.configuration_changed)

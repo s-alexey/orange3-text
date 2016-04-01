@@ -24,7 +24,6 @@ class BaseWrapper:
         for option in self.options:
             if not isinstance(option, BaseOption):
                 raise TypeError('Options should be a BaseOption subclass instance.')
-            setattr(self, option.name, option.default)
             option.set_owner(self)
             self._option_names.add(option.name)
 
@@ -53,6 +52,7 @@ class BaseWrapper:
     def options_layout(self, parent=None, callback=None):
         layout = QtGui.QFormLayout(parent)
         for option in self.options:
+            option.set_owner(self)
             layout.addRow(option.verbose_name, option.as_widget(callback=callback))
 
         return layout
@@ -67,6 +67,9 @@ class BaseWrapper:
     def validate(self):
         for option in self.options:
             option.validate()
+
+    def __eq__(self, other):
+        return type(self) == type(other) and self.name == other.name
 
 
 class BaseOption:
@@ -94,7 +97,13 @@ class BaseOption:
         raise NotImplementedError()
 
     def set_owner(self, owner):
+        if not hasattr(owner, self.name):
+            setattr(owner, self.name, self.default)
         self.owner = owner
+
+    @property
+    def value(self):
+        return getattr(self.owner, self.name)
 
     class ValidationError(Exception):
         pass
@@ -128,13 +137,13 @@ class StringOption(BaseOption):
         if self.choices:
             combo_box = QtGui.QComboBox()
             combo_box.addItems(self.choices)
-            combo_box.setCurrentIndex(self.choice_values.index(self.default))
+            combo_box.setCurrentIndex(self.choice_values.index(self.value))
 
             combo_box.currentIndexChanged.connect(self.selected_choice_changed)
             return combo_box
         else:
             line = QtGui.QLineEdit()
-            line.setText(self.default)
+            line.setText(self.value)
             line.textChanged.connect(self.on_change)
 
             return line
@@ -147,7 +156,7 @@ class BoolOption(BaseOption):
     def as_widget(self, callback=None):
         self.callback = callback
         checkbox = QtGui.QCheckBox()
-        checkbox.setChecked(self.default)
+        checkbox.setChecked(self.value)
 
         if callback:
             checkbox.stateChanged.connect(self.on_change)
@@ -166,7 +175,7 @@ class IntegerOption(BaseOption):
         spin_box = QtGui.QSpinBox()
         spin_box.setRange(*self.range)
         spin_box.setSingleStep(1)
-        spin_box.setValue(self.default)
+        spin_box.setValue(self.value)
         spin_box.valueChanged.connect(self.on_change)
         return spin_box
 
@@ -182,6 +191,6 @@ class FloatOption(BaseOption):
         spin_box = QtGui.QDoubleSpinBox()
         spin_box.setRange(*self.range)
         spin_box.setSingleStep(self.step)
-        spin_box.setValue(self.default)
+        spin_box.setValue(self.value)
         spin_box.valueChanged.connect(self.on_change)
         return spin_box
