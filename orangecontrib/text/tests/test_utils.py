@@ -9,7 +9,7 @@ from orangecontrib.text.utils import StringOption, IntegerOption, \
 class TestOptions(unittest.TestCase):
 
     def setUp(self):
-        self.qApp = QtGui.QApplication([])
+        self.qApp = QtGui.QApplication([], True)
 
     def test_as_widget(self):
         class DummyObj:
