@@ -1,7 +1,7 @@
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 
 from Orange.data import Table, ContinuousVariable, Domain
-from orangecontrib.text.utils import BaseWrapper, StringOption, FloatOption, BoolOption
+from orangecontrib.text.utils import BaseWrapper, StringOption, FloatOption, BoolOption, RangeOption
 
 
 class BaseVectorizerWrapper(BaseWrapper):
@@ -14,6 +14,9 @@ class BaseVectorizerWrapper(BaseWrapper):
 
     def update_configuration(self):
         kwargs = {opt.name: getattr(self, opt.name) for opt in self.options}
+        min_df, max_df = kwargs.pop('range', None)
+        kwargs['min_df'] = min_df
+        kwargs['max_df'] = max_df
         self.wrapped_object = self.wrapped_class(tokenizer=self.preprocessor, **kwargs)
 
     def __call__(self, corpus):
@@ -39,8 +42,7 @@ class CountVectorizerWrapper(BaseVectorizerWrapper):
     wrapped_class = CountVectorizer
 
     options = (
-        FloatOption(name='min_df', default=0., verbose_name="Minimum term's document frequency."),
-        FloatOption(name='max_df', default=1., verbose_name="Maximum term's document frequency."),
+        RangeOption(name='range', default=(0., 1.), verbose_name='Tf range'),
         BoolOption(name='binary', default=False, verbose_name="Binary"),
     )
 
@@ -56,8 +58,7 @@ class TfidfVectorizerWrapper(BaseVectorizerWrapper):
     )
 
     options = (
-        FloatOption(name='min_df', default=0., verbose_name="Minimum terms document frequency."),
-        FloatOption(name='max_df', default=1., verbose_name="Maximum terms document frequency."),
+        RangeOption(name='range', default=(0., 1.), verbose_name='Tf range'),
         BoolOption(name='binary', default=False, verbose_name="Binary"),
         StringOption(name='norm', default=None, verbose_name='Normalization method', choices=NORMS),
         BoolOption(name='use_idf', default=True, verbose_name='Enable idf reweighting'),

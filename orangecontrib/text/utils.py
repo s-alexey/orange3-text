@@ -54,6 +54,8 @@ class BaseWrapper:
         for option in self.options:
             option.set_owner(self)
             layout.addRow(option.verbose_name, option.as_widget(callback=callback))
+            # layout.addRow(option.as_layout(callback=callback))
+            # layout.addRow(option.as_widget(callback=callback))
 
         return layout
 
@@ -96,6 +98,12 @@ class BaseOption:
     def as_widget(self, callback=None):
         raise NotImplementedError()
 
+    def as_layout(self, callback=None):
+        layout = QtGui.QHBoxLayout()
+        layout.addWidget(QtGui.QLabel(self.verbose_name))
+        layout.addWidget(self.as_widget(callback))
+        return layout
+
     def set_owner(self, owner):
         if not hasattr(owner, self.name):
             setattr(owner, self.name, self.default)
@@ -112,8 +120,8 @@ class BaseOption:
         if self.validator:
             self.validator(getattr(self.owner, self.name))
 
-    def on_change(self, string):
-        setattr(self.owner, self.name, string)
+    def on_change(self, value):
+        setattr(self.owner, self.name, value)
         self.owner.update_configuration()
         if self.callback:
             self.callback()
@@ -153,6 +161,9 @@ class StringOption(BaseOption):
 
 
 class BoolOption(BaseOption):
+    def __init__(self, name, default=False, verbose_name=None, validator=None):
+        super().__init__(name=name, default=default, verbose_name=verbose_name, validator=validator)
+
     def as_widget(self, callback=None):
         self.callback = callback
         checkbox = QtGui.QCheckBox()
@@ -164,7 +175,7 @@ class BoolOption(BaseOption):
 
 
 class IntegerOption(BaseOption):
-    def __init__(self, name, default=None, verbose_name=None, validator=None, range=(0, 100), step=1):
+    def __init__(self, name, default=0, verbose_name=None, validator=None, range=(0, 100), step=1):
         super().__init__(name, default, verbose_name, validator)
         self.step = step
         self.range = range
@@ -181,7 +192,7 @@ class IntegerOption(BaseOption):
 
 
 class FloatOption(BaseOption):
-    def __init__(self, name, default=None, verbose_name=None, validator=None, range=(0, 1), step=.1):
+    def __init__(self, name, default=0., verbose_name=None, validator=None, range=(0, 1), step=.01):
         super().__init__(name, default, verbose_name, validator)
         self.step = step
         self.range = range
@@ -194,3 +205,52 @@ class FloatOption(BaseOption):
         spin_box.setValue(self.value)
         spin_box.valueChanged.connect(self.on_change)
         return spin_box
+
+
+class RangeOption(BaseOption):
+    def __init__(self, name, default=(0., 1.), verbose_name=None,
+                 validator=None, range=(0, 1), step=.01, min_size=None):
+        super().__init__(name, default, verbose_name, validator)
+        self.step = step
+        self.range = range
+        self.min_size = min_size if min_size else self.step
+
+    def as_widget(self, callback=None):
+        self.callback = callback
+        group_box = QtGui.QGroupBox()
+        group_box.setContentsMargins(0,0, 0, 0)
+        layout = QtGui.QVBoxLayout()
+        layout.setMargin(0)
+
+        layout.setStretch(0, 0)
+        # layout.setSpacing(0)
+        lower_bound = QtGui.QDoubleSpinBox()
+        lower_bound.setRange(self.range[0], self.value[1])
+        lower_bound.setSingleStep(self.step)
+        lower_bound.setValue(self.value[0])
+        lower_bound.valueChanged.connect(self.lower_bound_changed)
+        # lower_bound.setSiz
+        layout.addWidget(lower_bound)
+        self.lower_bound = lower_bound
+
+        upper_bound = QtGui.QDoubleSpinBox()
+        upper_bound.setRange(self.value[0], self.range[1])
+        upper_bound.setSingleStep(self.step)
+        upper_bound.setValue(self.value[1])
+        upper_bound.valueChanged.connect(self.upper_bound_changed)
+        layout.addWidget(upper_bound)
+        self.upper_bound = upper_bound
+        group_box.setLayout(layout)
+        return group_box
+
+    def lower_bound_changed(self, value):
+        self.upper_bound.setMinimum(value + self.min_size)
+        self.on_change((self.lower_bound.value(), self.upper_bound.value()))
+
+    def upper_bound_changed(self, value):
+        self.lower_bound.setMaximum(value - self.min_size)
+        self.on_change((self.lower_bound.value(), self.upper_bound.value()))
+
+    def set_step(self, step):
+        self.upper_bound.setSingleStep(step)
+        self.lower_bound.setSingleStep(step)
