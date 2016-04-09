@@ -51,7 +51,6 @@ class ComboBox:
 
         if hasattr(self.owner, attribute):
             value = getattr(self.owner, attribute)
-            items = [(item if item != value else value) for item in items]
             self.selected_item_index = items.index(value) if value in items else 0
         else:
             self.selected_item_index = 0
@@ -70,18 +69,19 @@ class ComboBox:
         self.layout.addLayout(self.options_layout)
         self.layout.setAlignment(QtCore.Qt.AlignTop)
         self.layout.setEnabled(False)
-        self.item_changed()
+        self.show_current_item_options()
 
-    def item_changed(self):
-        item = self.items[self.selected_item_index]
-        setattr(self.owner, self.attribute, item)
-
+    def show_current_item_options(self):
         self.clear_layout(self.options_layout)
-
+        item = self.items[self.selected_item_index]
         if item and item.options:
             layout = item.options_layout(callback=self.callback)
             self.options_layout.addLayout(layout)
 
+    def item_changed(self):
+        item = self.items[self.selected_item_index]
+        setattr(self.owner, self.attribute, item)
+        self.show_current_item_options()
         if self.callback:
             self.callback()
 

@@ -38,7 +38,7 @@ class NltkTokenizerTests(unittest.TestCase):
         tokenizer = RegexpTokenizer()
         self.assertTrue(hasattr(tokenizer, 'pattern'))
         tokenizer.pattern = r'\w+'
-        tokenizer.update_configuration()
+        tokenizer.apply_changes()
         sent = "Test tokenizer ."
         self.assertEqual(tokenizer.tokenize(sent), ['Test', 'tokenizer'])
 

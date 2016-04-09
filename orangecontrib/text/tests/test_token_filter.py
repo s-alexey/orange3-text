@@ -21,7 +21,7 @@ class TestFilters(unittest.TestCase):
     def test_stopwords(self):
         filter = StopwordsFilter()
         filter.language = 'english'
-        filter.update_configuration()
+        filter.apply_changes()
 
         self.assertFalse(filter.check('a'))
         self.assertTrue(filter.check('filter'))

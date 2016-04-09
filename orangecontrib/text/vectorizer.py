@@ -8,11 +8,16 @@ class BaseVectorizerWrapper(BaseWrapper):
     name = "Vectorizer"
     preprocessor = None
 
+    options = (
+        RangeOption(name='range', default=(0., 1.), verbose_name='Tf range'),
+        BoolOption(name='binary', default=False, verbose_name="Binary"),
+    )
+
     @property
     def vectorizer(self):
         return self.wrapped_object
 
-    def update_configuration(self):
+    def apply_changes(self):
         kwargs = {opt.name: getattr(self, opt.name) for opt in self.options}
         min_df, max_df = kwargs.pop('range', None)
         kwargs['min_df'] = min_df
@@ -41,11 +46,6 @@ class CountVectorizerWrapper(BaseVectorizerWrapper):
     name = "Count vectorizer"
     wrapped_class = CountVectorizer
 
-    options = (
-        RangeOption(name='range', default=(0., 1.), verbose_name='Tf range'),
-        BoolOption(name='binary', default=False, verbose_name="Binary"),
-    )
-
 
 class TfidfVectorizerWrapper(BaseVectorizerWrapper):
     name = "Tfidf vectorizer"
@@ -57,9 +57,7 @@ class TfidfVectorizerWrapper(BaseVectorizerWrapper):
         ('l2 normalization', 'l2')
     )
 
-    options = (
-        RangeOption(name='range', default=(0., 1.), verbose_name='Tf range'),
-        BoolOption(name='binary', default=False, verbose_name="Binary"),
+    options = BaseVectorizerWrapper.options + (
         StringOption(name='norm', default=None, verbose_name='Normalization method', choices=NORMS),
         BoolOption(name='use_idf', default=True, verbose_name='Enable idf reweighting'),
         BoolOption(name='smooth_idf', default=True, verbose_name='Smooth idf weights'),

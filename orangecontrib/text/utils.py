@@ -1,8 +1,41 @@
-from PyQt4 import QtGui
+from functools import partial
+
+from PyQt4 import QtGui, QtCore
 import collections
 
 
-class BaseWrapper:
+class WrapperMetaclass(type):
+    def __init__(cls, name, bases, nmspc):
+        # TODO: check bases for options and update cls.options
+        super().__init__(name, bases, nmspc)
+
+        if 'Meta' in nmspc:
+            Meta = nmspc['Meta']
+            if getattr(Meta, 'abstract', False):
+                return
+
+        cls._option_names = set()
+        cls._options = dict()
+        for option in cls.options:
+            if not isinstance(option, BaseOption):
+                raise TypeError('Options should be a BaseOption subclass instance.')
+            cls._option_names.add(option.name)
+            cls._options[option.name] = option
+            setattr(cls, option.name, property(
+                fget=partial(WrapperMetaclass.getter, option=option.name),
+                fset=partial(WrapperMetaclass.setter, option=option.name)
+            ))
+
+    @staticmethod
+    def getter(self, option):
+        return self.get_option(option).value
+
+    @staticmethod
+    def setter(self, value, option):
+        self.get_option(option).value = value
+
+
+class BaseWrapper(metaclass=WrapperMetaclass):
     """Wraps a class and provides a mutable instance.
 
     Attributes:
@@ -18,23 +51,18 @@ class BaseWrapper:
     wrapped_object = None
     options = tuple()
 
+    class Meta:
+        abstract = True
+
     def __init__(self, **kwargs):
-        self._option_names = set()
-
-        for option in self.options:
-            if not isinstance(option, BaseOption):
-                raise TypeError('Options should be a BaseOption subclass instance.')
-            option.set_owner(self)
-            self._option_names.add(option.name)
-
-        # allows overwrite default values in constructor call
+        # overwrites default values
         for arg, value in kwargs.items():
             if arg in self._option_names:
                 setattr(self, arg, value)
             else:
                 raise ValueError('Unknown argument `{}`'.format(arg))
 
-        self.update_configuration()
+        self.apply_changes()
 
     @staticmethod
     def _check_iterable(obj):
@@ -52,15 +80,14 @@ class BaseWrapper:
     def options_layout(self, parent=None, callback=None):
         layout = QtGui.QFormLayout(parent)
         for option in self.options:
-            option.set_owner(self)
             layout.addRow(option.verbose_name, option.as_widget(callback=callback))
-            # layout.addRow(option.as_layout(callback=callback))
-            # layout.addRow(option.as_widget(callback=callback))
-
+        layout.setLabelAlignment(QtCore.Qt.AlignRight)
         return layout
 
-    def update_configuration(self):
-        kwargs = {opt.name: getattr(self, opt.name) for opt in self.options}
+    def apply_changes(self):
+        # TODO: if no option item mustn't be changed
+        kwargs = {opt.name: opt.value for opt in self.options}
+        self.validate()
         self.wrapped_object = self.wrapped_class(**kwargs)
 
     def on_change(self):
@@ -72,6 +99,23 @@ class BaseWrapper:
 
     def __eq__(self, other):
         return type(self) == type(other) and self.name == other.name
+
+    def get_option(self, name):
+        return self._options[name]
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state['__values'] = {
+            option.name: option.value
+            for option in self.options
+        }
+        return state
+
+    def __setstate__(self, newstate):
+        values = newstate.pop('__values')
+        self.__dict__.update(newstate)
+        for name, value in values.items():
+            setattr(self, name, value)
 
 
 class BaseOption:
@@ -104,27 +148,38 @@ class BaseOption:
         layout.addWidget(self.as_widget(callback))
         return layout
 
-    def set_owner(self, owner):
-        if not hasattr(owner, self.name):
-            setattr(owner, self.name, self.default)
-        self.owner = owner
-
     @property
     def value(self):
-        return getattr(self.owner, self.name)
+        return getattr(self, '_value', self.default)
+
+    @value.setter
+    def value(self, value):
+        # allows gui temporary invalid state
+        # self.validate_value(value)
+        self._value = value
 
     class ValidationError(Exception):
         pass
 
-    def validate(self):
+    def validate_value(self, value):
         if self.validator:
-            self.validator(getattr(self.owner, self.name))
+            self.validator(value)
+
+    def validate(self):
+        self.validate_value(self.value)
 
     def on_change(self, value):
-        setattr(self.owner, self.name, value)
-        self.owner.update_configuration()
+        self.value = value
         if self.callback:
             self.callback()
+
+    @staticmethod
+    def setter(self, value):
+        self._value = value
+
+    @staticmethod
+    def getter(self):
+        return self._value
 
 
 class StringOption(BaseOption):
@@ -140,6 +195,9 @@ class StringOption(BaseOption):
                 self.choices = [c[0] for c in choices]
                 self.choice_values = [c[1] for c in choices]
 
+            if self.default is None:
+                self.default = self.choice_values[0]
+
     def as_widget(self, callback=None):
         self.callback = callback
         if self.choices:
@@ -147,17 +205,14 @@ class StringOption(BaseOption):
             combo_box.addItems(self.choices)
             combo_box.setCurrentIndex(self.choice_values.index(self.value))
 
-            combo_box.currentIndexChanged.connect(self.selected_choice_changed)
+            combo_box.currentIndexChanged.connect(
+                    lambda i: self.on_change(self.choice_values[i]))
             return combo_box
         else:
             line = QtGui.QLineEdit()
             line.setText(self.value)
             line.textChanged.connect(self.on_change)
-
             return line
-
-    def selected_choice_changed(self, i):
-        self.on_change(self.choice_values[i])
 
 
 class BoolOption(BaseOption):
@@ -168,9 +223,7 @@ class BoolOption(BaseOption):
         self.callback = callback
         checkbox = QtGui.QCheckBox()
         checkbox.setChecked(self.value)
-
-        if callback:
-            checkbox.stateChanged.connect(self.on_change)
+        checkbox.stateChanged.connect(self.on_change)
         return checkbox
 
 
@@ -182,7 +235,6 @@ class IntegerOption(BaseOption):
 
     def as_widget(self, callback=None):
         self.callback = callback
-
         spin_box = QtGui.QSpinBox()
         spin_box.setRange(*self.range)
         spin_box.setSingleStep(1)
@@ -223,13 +275,12 @@ class RangeOption(BaseOption):
         layout.setMargin(0)
 
         layout.setStretch(0, 0)
-        # layout.setSpacing(0)
         lower_bound = QtGui.QDoubleSpinBox()
         lower_bound.setRange(self.range[0], self.value[1])
         lower_bound.setSingleStep(self.step)
         lower_bound.setValue(self.value[0])
         lower_bound.valueChanged.connect(self.lower_bound_changed)
-        # lower_bound.setSiz
+
         layout.addWidget(lower_bound)
         self.lower_bound = lower_bound
 

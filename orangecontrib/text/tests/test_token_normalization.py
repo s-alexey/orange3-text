@@ -33,7 +33,7 @@ class TokenNormalizerTests(unittest.TestCase):
         stemmer = SnowballStemmer()
         self.assertTrue(hasattr(stemmer, 'language'))
         stemmer.language = 'french'
-        stemmer.update_configuration()
+        stemmer.apply_changes()
         token = 'voudrais'
         self.assertEqual(stemmer(token), nltk.SnowballStemmer(language='french').stem(token))
 

@@ -5,7 +5,14 @@ __all__ = ["Preprocessor"]
 
 class Preprocessor:
     """Holds document processing objects
+
+    Attributes:
+        string_transformers (List([BaseStringTransformer]): transforms strings
+        tokenizer (BaseTokenizer): tokenizes string
+        token_normalizer (BaseNormalizer): normalizes tokens
+        token_filters (List[BaseTokenFilter]): filters unneeded tokens
     """
+
     def __init__(self, string_transformers=None, tokenizer=None,
                  token_normalizer=None, token_filters=None):
 
@@ -61,3 +68,13 @@ class Preprocessor:
             "Filters: " + ', '.join(str(f) for f in self.token_filters),
             "Normalizer: " + str(self.token_normalizer),
         ])
+
+    def apply_changes(self):
+        for transformer in self.string_transformers:
+            transformer.apply_changes()
+        if self.tokenizer:
+            self.tokenizer.apply_changes()
+        if self.token_normalizer:
+            self.token_normalizer.apply_changes()
+        for filter in self.token_filters:
+            filter.apply_changes()

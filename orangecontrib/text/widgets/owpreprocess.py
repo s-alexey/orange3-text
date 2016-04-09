@@ -5,7 +5,7 @@ from Orange.widgets.widget import OWWidget
 from Orange.widgets import gui
 from orangecontrib.text.preprocess import Preprocessor
 from orangecontrib.text.string_transformation import TRANSFORMERS
-from orangecontrib.text.tokenization import TOKENIZERS
+from orangecontrib.text import tokenization
 from orangecontrib.text.token_filtering import FILTERS
 from orangecontrib.text.token_normalization import NORMALIZERS
 from orangecontrib.text.utils import BaseOption
@@ -25,10 +25,14 @@ class OWPreprocess(OWWidget):
     outputs = [(Output.PREPROCESSOR, Preprocessor)]
     want_main_area = False
 
-    TOKENIZERS = [None] + TOKENIZERS
-    NORMALIZERS = [None] + NORMALIZERS
-    TRANSFORMERS = TRANSFORMERS
-    FILTERS = FILTERS
+    TOKENIZERS = Setting([
+        None, tokenization.WordPunctTokenizer(), tokenization.WhitespaceTokenizer(),
+        tokenization.RegexpTokenizer(), tokenization.TweetTokenizer(),
+        tokenization.LineTokenizer()
+    ])
+    NORMALIZERS = Setting([None] + NORMALIZERS)
+    TRANSFORMERS = Setting(TRANSFORMERS)
+    FILTERS = Setting(FILTERS)
 
     preprocessor = Setting(Preprocessor())
 
@@ -84,9 +88,9 @@ class OWPreprocess(OWWidget):
 
         vbox.addLayout(settings_layout)
 
-        button = gui.button(self.controlArea, self, "&Apply", callback=self.apply, default=True)
-        vbox.addWidget(button)
-
+        self.apply_button = gui.button(self.controlArea, self, "&Apply", callback=self.apply)
+        vbox.addWidget(self.apply_button)
+        vbox.setMargin(10)
         self.layout().insertLayout(1, vbox)
         self.apply()
         self.demo_changed()
@@ -96,18 +100,19 @@ class OWPreprocess(OWWidget):
 
     def demo_changed(self):
         try:
-            if self.preprocessor.tokenizer:
-                self.preprocessor.tokenizer.validate()
+            self.preprocessor.apply_changes()
 
             self.demo_result.setText(
                 str(self.preprocessor(self.line_edit.text()))
             )
             self.demo_result.setStyleSheet('color: black')
+            self.apply_button.setEnabled(True)
         except BaseOption.ValidationError as e:
             self.demo_result.setText(
                 'error: ' + str(e)
             )
             self.demo_result.setStyleSheet('color: red')
+            self.apply_button.setEnabled(False)
 
 
 if __name__ == "__main__":

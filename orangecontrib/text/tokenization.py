@@ -4,7 +4,8 @@ from nltk import tokenize
 
 from orangecontrib.text.utils import StringOption, BaseWrapper
 
-__all__ = ["NltkTokenizer", "TOKENIZERS"]
+__all__ = ["NltkTokenizer", "WordPunctTokenizer", "RegexpTokenizer"
+           "WhitespaceTokenizer", "TweetTokenizer", "LineTokenizer"]
 
 
 class BaseTokenizer(BaseWrapper):
@@ -36,7 +37,7 @@ class NltkTokenizer(BaseTokenizer):
 
     def __init__(self):
         super().__init__()
-        self.update_configuration()
+        self.apply_changes()
 
     def tokenize(self, string):
         self._check_str_type(string)
@@ -79,7 +80,3 @@ class RegexpTokenizer(NltkTokenizer):
 class TweetTokenizer(NltkTokenizer):
     wrapped_class = tokenize.TweetTokenizer
     name = 'Tweet'
-
-
-TOKENIZERS = [WordPunctTokenizer(), WhitespaceTokenizer(), RegexpTokenizer(),
-              TweetTokenizer(), LineTokenizer()]

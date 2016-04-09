@@ -41,7 +41,7 @@ class StopwordsFilter(BaseTokenFilter):
         super().__init__()
         self.stopwords = set()
 
-    def update_configuration(self):
+    def apply_changes(self):
         self.stopwords = set(stopwords.words(self.language.lower()))
 
     def check(self, token):
