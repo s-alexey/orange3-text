@@ -1,0 +1,131 @@
+<html>
+<head>
+  <meta charset="utf-8">
+
+  <script src="jquery-2.1.4.min.js"></script>
+  <script src="anchorme.min.js"></script>
+
+  <style>
+    [class^="tag-"] {
+      background-color: yellow;
+    }
+
+    td {
+      padding: 5px 10px;
+      font-size: 16px;
+
+    }
+
+    div#documents {
+      width: 100%;
+    }
+
+    tr:nth-child(even) {
+      background: #F9F9F9
+    }
+
+    .tag {
+      position: relative;
+      font-size: 12px;
+    }
+
+    .token {
+      display: block;
+    }
+
+    .item {
+      text-align: center;
+      display: inline-block;
+      height: 2.6em;
+      /*border: 1px dashed red;*/
+      padding: 0 7px;
+
+    }
+
+    .token-only {
+      text-align: center;
+      display: inline-block;
+      background-color: whitesmoke;
+      height: 1.3em;
+      /*border: 1px dashed red;*/
+      margin: 0 7px;
+    }
+
+  </style>
+
+  <script>
+
+    function tokenSpan(token) {
+      var span = '';
+      if (token['tag']) {
+        span += '<span class="item"> <span class="tag">' + token['tag'] + '</span>'
+      } else {
+        span += '<span class="token-only">'
+      }
+      span += '<span class="token" title="DF='+ token['df'] +'">' + token['token'] + '</span> </span>';
+      return span
+    }
+
+    function urlify(text) {
+      var regex = /\[((?:ftp|http)s?:\/\/[\w-]+(?:\.[\w-]+)+(?:[\w.,@?^=%&amp;:\/~+#-]*[\w@?^=%&amp;\/~+#-])?)\]/gi;
+      if (typeof text === 'string') {
+        return anchorme.js(text)
+      }
+      return text
+    }
+
+    function renderDocument(doc, tokens) {
+      var doc_sel = $("#documents");
+      doc_sel.append('<table></table>');
+      var table = doc_sel.last();
+      for (var key in doc) {
+        table.append('<tr><td valign="top"><strong>' + doc[key][0] + ':</strong>' + '<td>' + urlify(doc[key][1]) + '</td></tr>');
+      }
+
+      var tokens_row = '<tr class="token-row"><td valign="top"><strong> tokens: </strong></td><td>';
+
+      for (var key in tokens) {
+        tokens_row += tokenSpan(tokens[key]);
+      }
+      tokens_row += '</td></tr>';
+      table.append(tokens_row);
+      table.append('<hr>')
+    }
+
+    function hideTokens() {
+      $("tr.token-row").hide();
+    }
+
+    function showTokens() {
+      $("tr.token-row").show();
+    }
+
+    function clearDocuments() {
+      $("#documents").html('')
+    }
+
+    $(document).ready(function () {
+      $(".tag").hover(function () {
+        var c = $(this).classList[1];
+        c = "tag-1";
+        console.log(c);
+        $("." + c).css("background-color", "yellow");
+        $(this).append($("<span> ***</span>"));
+      }, function () {
+        $(this).find("span:last").remove();
+      });
+
+      $("li.fade").hover(function () {
+        $(this).fadeOut(100);
+        $(this).fadeIn(500);
+      });
+
+    });
+  </script>
+</head>
+<body>
+<div id="documents">
+</div>
+
+</body>
+</html>

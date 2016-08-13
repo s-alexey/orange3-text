@@ -1,11 +1,15 @@
+import json
+import os
 import re
 import sre_constants
+import webbrowser
 from itertools import chain
 
 from PyQt4 import QtCore
 from PyQt4 import QtGui
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
+from PyQt4.QtWebKit import QWebPage
 
 from Orange.widgets import gui
 from Orange.widgets.settings import Setting, ContextSetting
@@ -23,15 +27,27 @@ class Output:
     CORPUS = "Corpus"
 
 
-class DocumentViewer(QTextEdit):
-
+class DocumentViewer(gui.WebviewWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setReadOnly(True)
-        self.setLineWrapMode(self.WidgetWidth)
+        self.page().setLinkDelegationPolicy(QWebPage.DelegateAllLinks)
+        self.linkClicked.connect(self.open_link)
+        self.setUrl(QtCore.QUrl(os.path.join(os.path.dirname(__file__), "resources", "documents-viewer.html")))
+
+    def displayDocument(self, corpus, i):
+        pass
+
+    def setDocument(self, doc):
+        self.setHtml(doc.toHtml())
 
     def sizeHint(self):
         return QSize(700, 300)
+
+    def clear(self):
+        self.evalJS('clearDocuments();')
+
+    def open_link(self, url):
+        webbrowser.open(str(url.toString()))
 
 
 class OWCorpusViewer(OWWidget):
@@ -56,7 +72,7 @@ class OWCorpusViewer(OWWidget):
         self.corpus_docs = None         # Documents generated from Corpus
         self.output_mask = None         # Output corpus indices
         self.document_contents = None   # QTextDocument
-        self.document_holder = None     # DocumentViewer
+        self.document_viewer = None     # DocumentViewer
         self.features = []              # all attributes
 
         # ---- CONTROL AREA ----
@@ -106,8 +122,7 @@ class OWCorpusViewer(OWWidget):
         self.document_table.selectionModel().selectionChanged.connect(self.show_document)
 
         # Document contents.
-        self.document_holder = DocumentViewer()
-        h_box.layout().addWidget(self.document_holder)
+        self.document_viewer = DocumentViewer(h_box, debug=True)
 
     # --- DATA LOADING ---
     def set_data(self, data=None):
@@ -120,6 +135,7 @@ class OWCorpusViewer(OWWidget):
             self.regenerate_documents()
             # Send the corpus to output.
             self.send(Output.CORPUS, self.corpus)
+        self.show_document()
 
     def reset_widget(self):
         # Corpus.
@@ -129,7 +145,7 @@ class OWCorpusViewer(OWWidget):
         # Widgets.
         self.search_listbox.clear()
         self.display_listbox.clear()
-        self.document_holder.clear()
+        self.document_viewer.clear()
         self.filter_input.clear()
         self.update_info_display()
         # Models/vars.
@@ -190,24 +206,34 @@ class OWCorpusViewer(OWWidget):
             self.warning(1, 'No features selected for display.')
         self.clear_text_highlight()  # Clear.
 
-        self.document_contents = QTextDocument(undoRedoEnabled=False)
-        self.document_contents.setDefaultStyleSheet('td { padding: 5px 15px 15xp 5px; }')
+        self.document_viewer.clear()
 
-        documents = []
+        if self.corpus is None:
+            return
+
         for index in self.document_table.selectionModel().selectedRows():
-            document = ['<table>']
+            document = []
             for feat_index in self.display_features:
                 feature = self.features[feat_index]
                 value = index.data(Qt.UserRole)[feature.name]
 
-                document.append(
-                    '<tr><td><strong>{0}:</strong></td><td>{1}</td></tr>'.format(
-                        feature.name, value))
-            document.append('</table><hr/>')
-            documents.append(document)
+                document.append((feature.name, value.value))
 
-        self.document_contents.setHtml(''.join(chain.from_iterable(documents)))
-        self.document_holder.setDocument(self.document_contents)
+            index = index.row()
+            dictionary = self.corpus.dictionary
+            if self.corpus and self.corpus.pos_tags is not None:
+                tokens = [
+                    dict(token=token, tag=tag, df=dictionary.dfs[dictionary.token2id[token]])
+                    for token, tag in zip(self.corpus.tokens[index], self.corpus.pos_tags[index])
+                ]
+            else:
+                tokens = [
+                    dict(token=token, tag=None, df=dictionary.dfs[dictionary.token2id[token]])
+                    for token in self.corpus.tokens[index]
+                ]
+
+            self.document_viewer.evalJS('renderDocument({}, {});'.format(json.dumps(document), json.dumps(tokens)))
+
         self.highlight_document_hits()
 
     # --- WIDGET SEARCH ---
@@ -260,11 +286,6 @@ class OWCorpusViewer(OWWidget):
         text_format = QtGui.QTextCharFormat()
         text_format.setBackground(QtGui.QBrush(QtGui.QColor('#ffffff')))
 
-        cursor = self.document_holder.textCursor()
-        cursor.setPosition(0)
-        cursor.movePosition(QTextCursor.End, QTextCursor.KeepAnchor, 1)
-        cursor.mergeCharFormat(text_format)
-
     # --- MISC ---
     def commit(self):
         if self.output_mask is not None:
@@ -280,6 +301,8 @@ if __name__ == '__main__':
     app = QApplication([])
     widget = OWCorpusViewer()
     widget.show()
-    corpus = Corpus.from_file('bookexcerpts')
+    from orangecontrib.text.tag import pos_tagger
+    corpus = pos_tagger.tag_corpus(Corpus.from_file('deerwester'))
+    # corpus = Corpus.from_file('bookexcerpts')
     widget.set_data(corpus)
     app.exec()
